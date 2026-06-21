@@ -10,8 +10,8 @@ ALLOWED_KEYS = {"finance", "opmodel", "opmodel-reviews"}
 
 def get_redis():
     return Redis(
-        url=os.environ["KV_REST_API_URL"],
-        token=os.environ["KV_REST_API_TOKEN"],
+        url=os.environ["UPSTASH_REDIS_REST_URL"],
+        token=os.environ["UPSTASH_REDIS_REST_TOKEN"],
     )
 
 
