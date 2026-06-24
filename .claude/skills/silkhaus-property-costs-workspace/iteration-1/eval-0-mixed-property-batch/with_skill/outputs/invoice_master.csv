@@ -1,6 +1,0 @@
-source,vendor,category,invoice_no,invoice_date,period_start,period_end,premise_ref,unit_id,landlord,unit_type,currency,gross,vat,net,vat_treatment,recoverable,notes
-task-text,DEWA,utility-dewa,,2026-05-31,,,,A-1203,Khan,revshare,AED,1260,,,standard,Y,Electricity & water; rev-share unit; recharge to landlord
-task-text,SparkleClean,cleaning,,2026-05-31,,,,A-1203,Khan,revshare,AED,420,,,standard,N,Turnover cleaning; always Silkhaus-borne per f7
-task-text,FixIt,repairs-maintenance,,2026-05-31,,,,A-1203,Khan,revshare,AED,735,,,standard,Y,Plumbing repair; rev-share unit; recharge to landlord
-task-text,DEWA,utility-dewa,,2026-05-31,,,,L-0907,,lease,AED,980,,,standard,N,Leased unit; Silkhaus-borne by definition
-task-text,Emicool,utility-cooling,,2026-05-31,,,,B-0801,Mensah,revshare,AED,588,,,standard,Y,District cooling; rev-share unit; recharge to landlord
