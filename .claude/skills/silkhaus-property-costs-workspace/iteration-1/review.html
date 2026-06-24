@@ -1,0 +1,1325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Eval Review</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600&family=Lora:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" integrity="sha384-EnyY0/GSHQGSxSgMwaIPzSESbqoOLSexfnSMN2AP+39Ckmn92stwABZynq1JyzdT" crossorigin="anonymous"></script>
+  <style>
+    :root {
+      --bg: #faf9f5;
+      --surface: #ffffff;
+      --border: #e8e6dc;
+      --text: #141413;
+      --text-muted: #b0aea5;
+      --accent: #d97757;
+      --accent-hover: #c4613f;
+      --green: #788c5d;
+      --green-bg: #eef2e8;
+      --red: #c44;
+      --red-bg: #fceaea;
+      --header-bg: #141413;
+      --header-text: #faf9f5;
+      --radius: 6px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Lora', Georgia, serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ---- Header ---- */
+    .header {
+      background: var(--header-bg);
+      color: var(--header-text);
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    .header h1 {
+      font-family: 'Poppins', sans-serif;
+      font-size: 1.25rem;
+      font-weight: 600;
+    }
+    .header .instructions {
+      font-size: 0.8rem;
+      opacity: 0.7;
+      margin-top: 0.25rem;
+    }
+    .header .progress {
+      font-size: 0.875rem;
+      opacity: 0.8;
+      text-align: right;
+    }
+
+    /* ---- Main content ---- */
+    .main {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1.5rem 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    /* ---- Sections ---- */
+    .section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      flex-shrink: 0;
+    }
+    .section-header {
+      font-family: 'Poppins', sans-serif;
+      padding: 0.75rem 1rem;
+      font-size: 0.75rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+    }
+    .section-body {
+      padding: 1rem;
+    }
+
+    /* ---- Config badge ---- */
+    .config-badge {
+      display: inline-block;
+      padding: 0.2rem 0.625rem;
+      border-radius: 9999px;
+      font-family: 'Poppins', sans-serif;
+      font-size: 0.6875rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin-left: 0.75rem;
+      vertical-align: middle;
+    }
+    .config-badge.config-primary {
+      background: rgba(33, 150, 243, 0.12);
+      color: #1976d2;
+    }
+    .config-badge.config-baseline {
+      background: rgba(255, 193, 7, 0.15);
+      color: #f57f17;
+    }
+
+    /* ---- Prompt ---- */
+    .prompt-text {
+      white-space: pre-wrap;
+      font-size: 0.9375rem;
+      line-height: 1.6;
+    }
+
+    /* ---- Outputs ---- */
+    .output-file {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .output-file + .output-file {
+      margin-top: 1rem;
+    }
+    .output-file-header {
+      padding: 0.5rem 0.75rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      font-family: 'SF Mono', SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .output-file-header .dl-btn {
+      font-size: 0.7rem;
+      color: var(--accent);
+      text-decoration: none;
+      cursor: pointer;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-weight: 500;
+      opacity: 0.8;
+    }
+    .output-file-header .dl-btn:hover {
+      opacity: 1;
+      text-decoration: underline;
+    }
+    .output-file-content {
+      padding: 0.75rem;
+      overflow-x: auto;
+    }
+    .output-file-content pre {
+      font-size: 0.8125rem;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: 'SF Mono', SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+    }
+    .output-file-content img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 4px;
+    }
+    .output-file-content iframe {
+      width: 100%;
+      height: 600px;
+      border: none;
+    }
+    .output-file-content table {
+      border-collapse: collapse;
+      font-size: 0.8125rem;
+      width: 100%;
+    }
+    .output-file-content table td,
+    .output-file-content table th {
+      border: 1px solid var(--border);
+      padding: 0.375rem 0.5rem;
+      text-align: left;
+    }
+    .output-file-content table th {
+      background: var(--bg);
+      font-weight: 600;
+    }
+    .output-file-content .download-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 0.875rem;
+      cursor: pointer;
+    }
+    .output-file-content .download-link:hover {
+      background: var(--border);
+    }
+    .empty-state {
+      color: var(--text-muted);
+      font-style: italic;
+      padding: 2rem;
+      text-align: center;
+    }
+
+    /* ---- Feedback ---- */
+    .prev-feedback {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0.625rem 0.75rem;
+      margin-top: 0.75rem;
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+    .prev-feedback-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 0.25rem;
+      color: var(--text-muted);
+    }
+    .feedback-textarea {
+      width: 100%;
+      min-height: 100px;
+      padding: 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 0.9375rem;
+      line-height: 1.5;
+      resize: vertical;
+      color: var(--text);
+    }
+    .feedback-textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+    .feedback-status {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 0.5rem;
+      min-height: 1.1em;
+    }
+
+    /* ---- Grades (collapsible) ---- */
+    .grades-toggle {
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+      user-select: none;
+    }
+    .grades-toggle:hover {
+      color: var(--accent);
+    }
+    .grades-toggle .arrow {
+      margin-right: 0.5rem;
+      transition: transform 0.15s;
+      font-size: 0.75rem;
+    }
+    .grades-toggle .arrow.open {
+      transform: rotate(90deg);
+    }
+    .grades-content {
+      display: none;
+      margin-top: 0.75rem;
+    }
+    .grades-content.open {
+      display: block;
+    }
+    .grades-summary {
+      font-size: 0.875rem;
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .grade-badge {
+      display: inline-block;
+      padding: 0.125rem 0.5rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .grade-pass { background: var(--green-bg); color: var(--green); }
+    .grade-fail { background: var(--red-bg); color: var(--red); }
+    .assertion-list {
+      list-style: none;
+    }
+    .assertion-item {
+      padding: 0.625rem 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.8125rem;
+    }
+    .assertion-item:last-child { border-bottom: none; }
+    .assertion-status {
+      font-weight: 600;
+      margin-right: 0.5rem;
+    }
+    .assertion-status.pass { color: var(--green); }
+    .assertion-status.fail { color: var(--red); }
+    .assertion-evidence {
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      margin-top: 0.25rem;
+      padding-left: 1.5rem;
+    }
+
+    /* ---- View tabs ---- */
+    .view-tabs {
+      display: flex;
+      gap: 0;
+      padding: 0 2rem;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .view-tab {
+      font-family: 'Poppins', sans-serif;
+      padding: 0.625rem 1.25rem;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      background: none;
+      color: var(--text-muted);
+      border-bottom: 2px solid transparent;
+      transition: all 0.15s;
+    }
+    .view-tab:hover { color: var(--text); }
+    .view-tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+    .view-panel { display: none; }
+    .view-panel.active { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+
+    /* ---- Benchmark view ---- */
+    .benchmark-view {
+      padding: 1.5rem 2rem;
+      overflow-y: auto;
+      flex: 1;
+    }
+    .benchmark-table {
+      border-collapse: collapse;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: 0.8125rem;
+      width: 100%;
+      margin-bottom: 1.5rem;
+    }
+    .benchmark-table th, .benchmark-table td {
+      padding: 0.625rem 0.75rem;
+      text-align: left;
+      border: 1px solid var(--border);
+    }
+    .benchmark-table th {
+      font-family: 'Poppins', sans-serif;
+      background: var(--header-bg);
+      color: var(--header-text);
+      font-weight: 500;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .benchmark-table tr:hover { background: var(--bg); }
+    .benchmark-table tr.benchmark-row-with { background: rgba(33, 150, 243, 0.06); }
+    .benchmark-table tr.benchmark-row-without { background: rgba(255, 193, 7, 0.06); }
+    .benchmark-table tr.benchmark-row-with:hover { background: rgba(33, 150, 243, 0.12); }
+    .benchmark-table tr.benchmark-row-without:hover { background: rgba(255, 193, 7, 0.12); }
+    .benchmark-table tr.benchmark-row-avg { font-weight: 600; border-top: 2px solid var(--border); }
+    .benchmark-table tr.benchmark-row-avg.benchmark-row-with { background: rgba(33, 150, 243, 0.12); }
+    .benchmark-table tr.benchmark-row-avg.benchmark-row-without { background: rgba(255, 193, 7, 0.12); }
+    .benchmark-delta-positive { color: var(--green); font-weight: 600; }
+    .benchmark-delta-negative { color: var(--red); font-weight: 600; }
+    .benchmark-notes {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem;
+    }
+    .benchmark-notes h3 {
+      font-family: 'Poppins', sans-serif;
+      font-size: 0.875rem;
+      margin-bottom: 0.75rem;
+    }
+    .benchmark-notes ul {
+      list-style: disc;
+      padding-left: 1.25rem;
+    }
+    .benchmark-notes li {
+      font-size: 0.8125rem;
+      line-height: 1.6;
+      margin-bottom: 0.375rem;
+    }
+    .benchmark-empty {
+      color: var(--text-muted);
+      font-style: italic;
+      text-align: center;
+      padding: 3rem;
+    }
+
+    /* ---- Navigation ---- */
+    .nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem 2rem;
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+      flex-shrink: 0;
+    }
+    .nav-btn {
+      font-family: 'Poppins', sans-serif;
+      padding: 0.5rem 1.25rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--text);
+      transition: all 0.15s;
+    }
+    .nav-btn:hover:not(:disabled) {
+      background: var(--bg);
+      border-color: var(--text-muted);
+    }
+    .nav-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .done-btn {
+      font-family: 'Poppins', sans-serif;
+      padding: 0.5rem 1.5rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 500;
+      transition: all 0.15s;
+    }
+    .done-btn:hover {
+      background: var(--bg);
+      border-color: var(--text-muted);
+    }
+    .done-btn.ready {
+      border: none;
+      background: var(--accent);
+      color: white;
+      font-weight: 600;
+    }
+    .done-btn.ready:hover {
+      background: var(--accent-hover);
+    }
+    /* ---- Done overlay ---- */
+    .done-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 100;
+      justify-content: center;
+      align-items: center;
+    }
+    .done-overlay.visible {
+      display: flex;
+    }
+    .done-card {
+      background: var(--surface);
+      border-radius: 12px;
+      padding: 2rem 3rem;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      max-width: 500px;
+    }
+    .done-card h2 {
+      font-size: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+    .done-card p {
+      color: var(--text-muted);
+      margin-bottom: 1.5rem;
+      line-height: 1.5;
+    }
+    .done-card .btn-row {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: center;
+    }
+    .done-card button {
+      padding: 0.5rem 1.25rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      cursor: pointer;
+      font-size: 0.875rem;
+    }
+    .done-card button:hover {
+      background: var(--bg);
+    }
+    /* ---- Toast ---- */
+    .toast {
+      position: fixed;
+      bottom: 5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--header-bg);
+      color: var(--header-text);
+      padding: 0.625rem 1.25rem;
+      border-radius: var(--radius);
+      font-size: 0.875rem;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+      z-index: 200;
+    }
+    .toast.visible {
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+  <div id="app" style="height:100vh; display:flex; flex-direction:column;">
+    <div class="header">
+      <div>
+        <h1>Eval Review: <span id="skill-name"></span></h1>
+        <div class="instructions">Review each output and leave feedback below. Navigate with arrow keys or buttons. When done, copy feedback and paste into Claude Code.</div>
+      </div>
+      <div class="progress" id="progress"></div>
+    </div>
+
+    <!-- View tabs (only shown when benchmark data exists) -->
+    <div class="view-tabs" id="view-tabs" style="display:none;">
+      <button class="view-tab active" onclick="switchView('outputs')">Outputs</button>
+      <button class="view-tab" onclick="switchView('benchmark')">Benchmark</button>
+    </div>
+
+    <!-- Outputs panel (qualitative review) -->
+    <div class="view-panel active" id="panel-outputs">
+    <div class="main">
+      <!-- Prompt -->
+      <div class="section">
+        <div class="section-header">Prompt <span class="config-badge" id="config-badge" style="display:none;"></span></div>
+        <div class="section-body">
+          <div class="prompt-text" id="prompt-text"></div>
+        </div>
+      </div>
+
+      <!-- Outputs -->
+      <div class="section">
+        <div class="section-header">Output</div>
+        <div class="section-body" id="outputs-body">
+          <div class="empty-state">No output files found</div>
+        </div>
+      </div>
+
+      <!-- Previous Output (collapsible) -->
+      <div class="section" id="prev-outputs-section" style="display:none;">
+        <div class="section-header">
+          <div class="grades-toggle" onclick="togglePrevOutputs()">
+            <span class="arrow" id="prev-outputs-arrow">&#9654;</span>
+            Previous Output
+          </div>
+        </div>
+        <div class="grades-content" id="prev-outputs-content"></div>
+      </div>
+
+      <!-- Grades (collapsible) -->
+      <div class="section" id="grades-section" style="display:none;">
+        <div class="section-header">
+          <div class="grades-toggle" onclick="toggleGrades()">
+            <span class="arrow" id="grades-arrow">&#9654;</span>
+            Formal Grades
+          </div>
+        </div>
+        <div class="grades-content" id="grades-content"></div>
+      </div>
+
+      <!-- Feedback -->
+      <div class="section">
+        <div class="section-header">Your Feedback</div>
+        <div class="section-body">
+          <textarea
+            class="feedback-textarea"
+            id="feedback"
+            placeholder="What do you think of this output? Any issues, suggestions, or things that look great?"
+          ></textarea>
+          <div class="feedback-status" id="feedback-status"></div>
+          <div class="prev-feedback" id="prev-feedback" style="display:none;">
+            <div class="prev-feedback-label">Previous feedback</div>
+            <div id="prev-feedback-text"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="nav" id="outputs-nav">
+      <button class="nav-btn" id="prev-btn" onclick="navigate(-1)">&#8592; Previous</button>
+      <button class="done-btn" id="done-btn" onclick="showDoneDialog()">Submit All Reviews</button>
+      <button class="nav-btn" id="next-btn" onclick="navigate(1)">Next &#8594;</button>
+    </div>
+    </div><!-- end panel-outputs -->
+
+    <!-- Benchmark panel (quantitative stats) -->
+    <div class="view-panel" id="panel-benchmark">
+      <div class="benchmark-view" id="benchmark-content">
+        <div class="benchmark-empty">No benchmark data available. Run a benchmark to see quantitative results here.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Done overlay -->
+  <div class="done-overlay" id="done-overlay">
+    <div class="done-card">
+      <h2>Review Complete</h2>
+      <p>Your feedback has been saved. Go back to your Claude Code session and tell Claude you're done reviewing.</p>
+      <div class="btn-row">
+        <button onclick="closeDoneDialog()">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // ---- Embedded data (injected by generate_review.py) ----
+    const EMBEDDED_DATA = {"skill_name": "silkhaus-property-costs", "runs": [{"id": "eval-0-mixed-property-batch-with_skill", "prompt": "It's the May 2026 close and I need to book this month's property bills as journal entries \u2014 give me a table I can review before posting. All amounts are AED and include 5% VAT where applicable:\n- DEWA electricity & water for unit A-1203 (rev-share, owner Khan): AED 1,260\n- Turnover cleaning by SparkleClean for unit A-1203: AED 420\n- Plumbing repair by FixIt at unit A-1203 (rev-share): AED 735\n- DEWA for unit L-0907 (this is one of our leased units): AED 980\n- Emicool district cooling for unit B-0801 (rev-share, owner Mensah): AED 588", "eval_id": 0, "outputs": [{"name": "invoice_master.csv", "type": "text", "content": "source,vendor,category,invoice_no,invoice_date,period_start,period_end,premise_ref,unit_id,landlord,unit_type,currency,gross,vat,net,vat_treatment,recoverable,notes\ntask-text,DEWA,utility-dewa,,2026-05-31,,,,A-1203,Khan,revshare,AED,1260,,,standard,Y,Electricity & water; rev-share unit; recharge to landlord\ntask-text,SparkleClean,cleaning,,2026-05-31,,,,A-1203,Khan,revshare,AED,420,,,standard,N,Turnover cleaning; always Silkhaus-borne per f7\ntask-text,FixIt,repairs-maintenance,,2026-05-31,,,,A-1203,Khan,revshare,AED,735,,,standard,Y,Plumbing repair; rev-share unit; recharge to landlord\ntask-text,DEWA,utility-dewa,,2026-05-31,,,,L-0907,,lease,AED,980,,,standard,N,Leased unit; Silkhaus-borne by definition\ntask-text,Emicool,utility-cooling,,2026-05-31,,,,B-0801,Mensah,revshare,AED,588,,,standard,Y,District cooling; rev-share unit; recharge to landlord\n"}, {"name": "journal_entries.md", "type": "text", "content": "# Property-cost journal entries \u2014 May 2026 close\n\nGenerated with the `silkhaus-property-costs` skill (f7 rules). Each entry was built and\nbalance-checked by `scripts/build_je.py` (exit 0, all balanced). All amounts AED; vendor\ninvoices are UAE VAT-registered, so VAT is treated as **standard** input VAT (5% extracted\nfrom the gross). Output VAT on landlord recharges is raised at settlement (f8), not here.\n\n## Property-cost journal entries \u2014 May 2026\n\n### DEWA \u00b7 (inv. no. not provided) \u00b7 utility-dewa \u00b7 A-1203 (owner Khan) \u2014 recoverable\n| # | Dr/Cr | Account (code) | Amount (AED) | Narration |\n|---|-------|----------------|-------------:|-----------|\n| 1 | Dr | Landlord Receivable \u2014 Utilities (120060) | 1,200.00 | DEWA May-26 electricity & water \u2014 recoverable, unit A-1203 |\n| 2 | Dr | VAT on Purchases AE (110038) | 60.00 | Input VAT 5% |\n| 3 | Cr | Accounts Payable (110001) | 1,260.00 | DEWA invoice (no. n/a) |\n\n**Balanced:** Dr 1,260.00 = Cr 1,260.00 \u2713  *(output VAT on recharge \u2192 f8)*\n\n### SparkleClean \u00b7 (inv. no. not provided) \u00b7 cleaning \u00b7 A-1203 \u2014 Silkhaus-borne\n| # | Dr/Cr | Account (code) | Amount (AED) | Narration |\n|---|-------|----------------|-------------:|-----------|\n| 1 | Dr | Unit Cleaning Expenses (620013) | 400.00 | Turnover cleaning \u2014 Silkhaus-borne, unit A-1203 |\n| 2 | Dr | VAT on Purchases AE (110038) | 20.00 | Input VAT 5% |\n| 3 | Cr | Accounts Payable (110001) | 420.00 | SparkleClean invoice (no. n/a) |\n\n**Balanced:** Dr 420.00 = Cr 420.00 \u2713\n\n### FixIt \u00b7 (inv. no. not provided) \u00b7 repairs-maintenance \u00b7 A-1203 (owner Khan) \u2014 recoverable\n| # | Dr/Cr | Account (code) | Amount (AED) | Narration |\n|---|-------|----------------|-------------:|-----------|\n| 1 | Dr | Landlord Receivable \u2014 R&M (120059) | 700.00 | Plumbing repair \u2014 recoverable, unit A-1203 |\n| 2 | Dr | VAT on Purchases AE (110038) | 35.00 | Input VAT 5% |\n| 3 | Cr | Accounts Payable (110001) | 735.00 | FixIt invoice (no. n/a) |\n\n**Balanced:** Dr 735.00 = Cr 735.00 \u2713  *(output VAT on recharge \u2192 f8)*\n\n### DEWA \u00b7 (inv. no. not provided) \u00b7 utility-dewa \u00b7 L-0907 \u2014 Silkhaus-borne\n| # | Dr/Cr | Account (code) | Amount (AED) | Narration |\n|---|-------|----------------|-------------:|-----------|\n| 1 | Dr | DEWA Consumption (640004) | 933.33 | DEWA May-26 \u2014 leased unit, Silkhaus-borne, unit L-0907 |\n| 2 | Dr | VAT on Purchases AE (110038) | 46.67 | Input VAT 5% |\n| 3 | Cr | Accounts Payable (110001) | 980.00 | DEWA invoice (no. n/a) |\n\n**Balanced:** Dr 980.00 = Cr 980.00 \u2713\n\n### Emicool \u00b7 (inv. no. not provided) \u00b7 utility-cooling \u00b7 B-0801 (owner Mensah) \u2014 recoverable\n| # | Dr/Cr | Account (code) | Amount (AED) | Narration |\n|---|-------|----------------|-------------:|-----------|\n| 1 | Dr | Landlord Receivable \u2014 Utilities (120060) | 560.00 | Emicool district cooling \u2014 recoverable, unit B-0801 |\n| 2 | Dr | VAT on Purchases AE (110038) | 28.00 | Input VAT 5% |\n| 3 | Cr | Accounts Payable (110001) | 588.00 | Emicool invoice (no. n/a) |\n\n**Balanced:** Dr 588.00 = Cr 588.00 \u2713  *(output VAT on recharge \u2192 f8)*\n\n### Totals\n| Account (code) | Dr | Cr |\n|----------------|---:|---:|\n| Accounts Payable (110001) | 0.00 | 3,983.00 |\n| VAT on Purchases AE (110038) | 189.67 | 0.00 |\n| Landlord Receivable \u2014 R&M (120059) | 700.00 | 0.00 |\n| Landlord Receivable \u2014 Utilities (120060) | 1,760.00 | 0.00 |\n| Unit Cleaning Expenses (620013) | 400.00 | 0.00 |\n| DEWA Consumption (640004) | 933.33 | 0.00 |\n| **TOTAL** | **3,983.00** | **3,983.00** |\n\n**All entries balance:** YES \u2713\n\n### Classification summary (the f7 control applied)\n| Vendor | Unit | Type | Cost charged to landlord? | Treatment | Debit account |\n|---|---|---|---|---|---|\n| DEWA | A-1203 | rev-share | Yes (utility, default recharge) | Recoverable | Landlord Receivable \u2014 Utilities (120060) |\n| SparkleClean | A-1203 | rev-share | No \u2014 cleaning is **never** recharged | Silkhaus-borne | Unit Cleaning Expenses (620013) |\n| FixIt | A-1203 | rev-share | Yes (R&M, default recharge) | Recoverable | Landlord Receivable \u2014 R&M (120059) |\n| DEWA | L-0907 | **lease** | No \u2014 lease unit, borne by definition | Silkhaus-borne | DEWA Consumption (640004) |\n| Emicool | B-0801 | rev-share | Yes (cooling = utility, default recharge) | Recoverable | Landlord Receivable \u2014 Utilities (120060) |\n\n### Review flags\n- **DEWA A-1203 / FixIt A-1203 / Emicool B-0801 (recoverable):** output VAT on the landlord\n  recharge is raised when the landlord is invoiced at **f8 settlement**, not in these f7 entries.\n  The cost sits net on the landlord receivable (120060 / 120059); Silkhaus still claims the 5%\n  input VAT now.\n- **SparkleClean cleaning:** booked Silkhaus-borne to Unit Cleaning Expenses (620013) per the f7\n  rule that cleaning is never recharged (Silkhaus recognises the cleaning revenue at booking).\n  Confirm this turnover clean was a normal clean and **not** a guest service-failure make-good\n  (which would route to Guest Experience 620011 instead).\n- **Vendor invoice numbers / dates:** none were provided in the source. Invoice date defaulted to\n  the close date 2026-05-31 and invoice no. left as \"n/a\" \u2014 populate from the actual vendor PDFs\n  before posting so the entries are traceable.\n\n### Assumptions stated (per task constraints \u2014 no external accounts accessed)\n1. All five vendors (DEWA, SparkleClean, FixIt, Emicool) are **UAE VAT-registered**, so the AED\n   amounts are gross and include 5% VAT \u2192 posted as standard input VAT. None are international,\n   so no reverse-charge (RCM) treatment applies.\n2. The stated amounts are the **gross/total** payable; net = gross \u00f7 1.05, VAT = gross \u2212 net.\n3. Rev-share units follow the **default recharge policy** for utilities and R&M \u2192 recoverable.\n   L-0907 is a leased unit, so its DEWA cost is Silkhaus-borne.\n4. Emicool district cooling is classified as a utility (`utility-cooling`), so its recoverable\n   leg uses Landlord Receivable \u2014 Utilities (120060), consistent with the posting rules.\n5. Entries stop at A/P (cost booked, f7). The vendor-payment entry (Dr 110001 / Cr bank 120023)\n   is a separate downstream step and is intentionally excluded.\n"}], "grading": {"eval_id": 0, "eval_name": "eval-0-mixed-property-batch", "configuration": "with_skill", "summary": {"pass_rate": 1.0, "passed": 9, "failed": 0, "total": 9}, "expectations": [{"text": "Rev-share DEWA (A-1203) debits Landlord Receivable \u2014 Utilities (120060)", "passed": true, "evidence": "found '120060'"}, {"text": "Rev-share plumbing R&M (FixIt) debits Landlord Receivable \u2014 R&M (120059)", "passed": true, "evidence": "found '120059'"}, {"text": "Turnover cleaning (SparkleClean) is Silkhaus-borne to Unit Cleaning Expenses (620013)", "passed": true, "evidence": "found '620013'"}, {"text": "Leased-unit DEWA (L-0907) is Silkhaus-borne to DEWA Consumption (640004)", "passed": true, "evidence": "found '640004'"}, {"text": "Emicool cooling on a rev-share unit also debits Landlord Receivable \u2014 Utilities (120060)", "passed": true, "evidence": "Emicool present with 120060"}, {"text": "Splits 5% Input VAT to VAT on Purchases (110038)", "passed": true, "evidence": "found '110038'"}, {"text": "Credits Accounts Payable (110001)", "passed": true, "evidence": "found '110001'"}, {"text": "Every entry balances and the totals block foots to 3,983.00", "passed": true, "evidence": "totals foot to 3,983.00"}, {"text": "Uses only real Silkhaus GL codes (no invented placeholder accounts like 'Due from Owner')", "passed": true, "evidence": "real codes, no placeholders"}]}}, {"id": "eval-0-mixed-property-batch-without_skill", "prompt": "It's the May 2026 close and I need to book this month's property bills as journal entries \u2014 give me a table I can review before posting. All amounts are AED and include 5% VAT where applicable:\n- DEWA electricity & water for unit A-1203 (rev-share, owner Khan): AED 1,260\n- Turnover cleaning by SparkleClean for unit A-1203: AED 420\n- Plumbing repair by FixIt at unit A-1203 (rev-share): AED 735\n- DEWA for unit L-0907 (this is one of our leased units): AED 980\n- Emicool district cooling for unit B-0801 (rev-share, owner Mensah): AED 588", "eval_id": 0, "outputs": [{"name": "journal_entries.md", "type": "text", "content": "# May 2026 Close \u2014 Property Bills Journal Entries\n\n**Entity:** Silkhaus (Dubai STR / rev-share)  |  **ERP:** NetSuite  |  **Period:** May 2026\n**Currency:** AED  |  **VAT:** UAE standard rate 5%, amounts stated VAT-inclusive\n**Prepared for review \u2014 not yet posted.**\n\n---\n\n## Key treatment logic (read before reviewing)\n\n| Driver | Treatment |\n|---|---|\n| **Rev-share unit, owner-cost** (utilities, structural/plumbing repairs) | Cost economically belongs to the owner. Booked to a **Due from Owner** receivable (recoverable), credited to the vendor/accrual. **Not** Silkhaus P&L expense. Input VAT passes through to owner (not reclaimed by Silkhaus). |\n| **Rev-share unit, operator-cost** (turnover cleaning of a guest stay) | Cost of delivering the guest stay; borne by Silkhaus, not recharged to owner. Booked to **Silkhaus P&L expense**; input VAT reclaimable. |\n| **Leased unit** (Silkhaus is lessee/operator) | Silkhaus bears the cost. Booked to **Silkhaus P&L expense**; input VAT reclaimable. |\n\n**Assumptions stated (override at review if your policy differs):**\n1. All five amounts are VAT-inclusive at 5%; net = gross \u00f7 1.05.\n2. Rev-share utilities (DEWA, Emicool) and the plumbing repair are **owner-recoverable** \u2192 balance-sheet receivable, no Silkhaus expense, no Silkhaus input-VAT reclaim (VAT recharged to owner with the cost).\n3. Turnover cleaning on the rev-share unit is an **operator cost** \u2192 Silkhaus expense + input VAT reclaim.\n4. Leased-unit DEWA is a **Silkhaus expense** + input VAT reclaim.\n5. Vendors are VAT-registered, so input VAT is shown on the operator/leased items. If a vendor is not registered, drop the VAT line and gross-up the expense.\n6. Credits are booked to **Accounts Payable** per vendor (these are bills). If you prefer accrual at close, swap AP for **Accrued Expenses**.\n7. GL account numbers are placeholders \u2014 map to your NetSuite chart before posting.\n\n---\n\n## Journal Entries (one JE per bill)\n\n### JE-01 \u2014 DEWA, Unit A-1203 (rev-share, Owner: Khan) \u2014 owner-recoverable\n| Account | Dept/Class | Property | Debit | Credit |\n|---|---|---|---|---|\n| 1310 \u00b7 Due from Owner \u2013 Khan | Rev-share | A-1203 | 1,260.00 | |\n| 2000 \u00b7 Accounts Payable \u2013 DEWA | | A-1203 | | 1,260.00 |\n| **Totals** | | | **1,260.00** | **1,260.00** |\n\n*Recoverable utility recharged to owner at gross (AED 1,200.00 net + AED 60.00 VAT passed through). No Silkhaus expense / no input-VAT reclaim.*\n\n### JE-02 \u2014 Turnover cleaning, SparkleClean, Unit A-1203 \u2014 operator cost\n| Account | Dept/Class | Property | Debit | Credit |\n|---|---|---|---|---|\n| 6200 \u00b7 Cleaning & Turnover Expense | STR Ops | A-1203 | 400.00 | |\n| 1450 \u00b7 Input VAT Recoverable | | A-1203 | 20.00 | |\n| 2000 \u00b7 Accounts Payable \u2013 SparkleClean | | A-1203 | | 420.00 |\n| **Totals** | | | **420.00** | **420.00** |\n\n### JE-03 \u2014 Plumbing repair, FixIt, Unit A-1203 (rev-share) \u2014 owner-recoverable\n| Account | Dept/Class | Property | Debit | Credit |\n|---|---|---|---|---|\n| 1310 \u00b7 Due from Owner \u2013 Khan | Rev-share | A-1203 | 735.00 | |\n| 2000 \u00b7 Accounts Payable \u2013 FixIt | | A-1203 | | 735.00 |\n| **Totals** | | | **735.00** | **735.00** |\n\n*Repair on a rev-share unit recharged to owner at gross (AED 700.00 net + AED 35.00 VAT passed through). No Silkhaus expense / no input-VAT reclaim.*\n\n### JE-04 \u2014 DEWA, Unit L-0907 (leased unit) \u2014 Silkhaus expense\n| Account | Dept/Class | Property | Debit | Credit |\n|---|---|---|---|---|\n| 6100 \u00b7 Utilities Expense | STR Ops | L-0907 | 933.33 | |\n| 1450 \u00b7 Input VAT Recoverable | | L-0907 | 46.67 | |\n| 2000 \u00b7 Accounts Payable \u2013 DEWA | | L-0907 | | 980.00 |\n| **Totals** | | | **980.00** | **980.00** |\n\n### JE-05 \u2014 Emicool district cooling, Unit B-0801 (rev-share, Owner: Mensah) \u2014 owner-recoverable\n| Account | Dept/Class | Property | Debit | Credit |\n|---|---|---|---|---|\n| 1310 \u00b7 Due from Owner \u2013 Mensah | Rev-share | B-0801 | 588.00 | |\n| 2000 \u00b7 Accounts Payable \u2013 Emicool | | B-0801 | | 588.00 |\n| **Totals** | | | **588.00** | **588.00** |\n\n*Recoverable cooling charge recharged to owner at gross (AED 560.00 net + AED 28.00 VAT passed through). No Silkhaus expense / no input-VAT reclaim.*\n\n---\n\n## Batch summary\n\n| JE | Property | Vendor | Type | Gross (AED) | Net | VAT | Debit account |\n|---|---|---|---|---:|---:|---:|---|\n| JE-01 | A-1203 | DEWA | Rev-share / owner-recoverable | 1,260.00 | 1,200.00 | 60.00 | Due from Owner \u2013 Khan |\n| JE-02 | A-1203 | SparkleClean | Operator expense | 420.00 | 400.00 | 20.00 | Cleaning Expense |\n| JE-03 | A-1203 | FixIt | Rev-share / owner-recoverable | 735.00 | 700.00 | 35.00 | Due from Owner \u2013 Khan |\n| JE-04 | L-0907 | DEWA | Leased / Silkhaus expense | 980.00 | 933.33 | 46.67 | Utilities Expense |\n| JE-05 | B-0801 | Emicool | Rev-share / owner-recoverable | 588.00 | 560.00 | 28.00 | Due from Owner \u2013 Mensah |\n| **Total** | | | | **3,983.00** | **3,793.33** | **189.67** | |\n\n### Where the AED 3,983.00 lands\n| Bucket | Amount (AED) |\n|---|---:|\n| Due from Owner \u2013 Khan (A-1203: DEWA + plumbing, gross) | 1,995.00 |\n| Due from Owner \u2013 Mensah (B-0801: Emicool, gross) | 588.00 |\n| **Total owner-recoverable receivable** | **2,583.00** |\n| Silkhaus P&L expense (Cleaning 400.00 + Utilities 933.33) | 1,333.33 |\n| Input VAT recoverable (20.00 + 46.67) | 66.67 |\n| **Total Silkhaus-borne (expense + reclaimable VAT)** | **1,400.00** |\n| Accounts Payable (sum of all five vendor bills, gross) | 3,983.00 |\n\n**Check:** Owner-recoverable 2,583.00 + Silkhaus-borne 1,400.00 = 3,983.00 = total AP credited. \u2714 Each JE balances.\n\n---\n\n### Review flags\n- **Owner-recoverable VAT:** I assumed input VAT on rev-share owner costs is passed through to the owner (booked gross to Due from Owner, no Silkhaus reclaim). If Silkhaus is the principal contracting party and reclaims that VAT, move AED 60 + 35 + 28 = **123.00** to Input VAT Recoverable and reduce the owner receivables accordingly.\n- **Turnover cleaning:** treated as Silkhaus operator cost. If your rev-share contract recharges cleaning to the owner (or it's a pass-through guest charge), reclassify JE-02 to Due from Owner \u2013 Khan like JE-01/03.\n- **AP vs. accrual:** booked to AP as vendor bills. If these are accrued at close pending invoices, replace AP with Accrued Expenses and reverse next period.\n- **GL codes / NetSuite dimensions:** account numbers are placeholders; populate Subsidiary, Department/Class, and the Property/Location segment per your NetSuite setup.\n"}], "grading": {"eval_id": 0, "eval_name": "eval-0-mixed-property-batch", "configuration": "without_skill", "summary": {"pass_rate": 0.1111, "passed": 1, "failed": 8, "total": 9}, "expectations": [{"text": "Rev-share DEWA (A-1203) debits Landlord Receivable \u2014 Utilities (120060)", "passed": false, "evidence": "'120060' not present"}, {"text": "Rev-share plumbing R&M (FixIt) debits Landlord Receivable \u2014 R&M (120059)", "passed": false, "evidence": "'120059' not present"}, {"text": "Turnover cleaning (SparkleClean) is Silkhaus-borne to Unit Cleaning Expenses (620013)", "passed": false, "evidence": "'620013' not present"}, {"text": "Leased-unit DEWA (L-0907) is Silkhaus-borne to DEWA Consumption (640004)", "passed": false, "evidence": "'640004' not present"}, {"text": "Emicool cooling on a rev-share unit also debits Landlord Receivable \u2014 Utilities (120060)", "passed": false, "evidence": "Emicool not tied to 120060"}, {"text": "Splits 5% Input VAT to VAT on Purchases (110038)", "passed": false, "evidence": "'110038' not present"}, {"text": "Credits Accounts Payable (110001)", "passed": false, "evidence": "'110001' not present"}, {"text": "Every entry balances and the totals block foots to 3,983.00", "passed": true, "evidence": "totals foot to 3,983.00"}, {"text": "Uses only real Silkhaus GL codes (no invented placeholder accounts like 'Due from Owner')", "passed": false, "evidence": "invented/placeholder language present (Due from Owner)"}]}}, {"id": "eval-1-email-to-master-with_skill", "prompt": "I pulled two vendor invoices out of my inbox \u2014 can you build an invoice master row for each and then the journal entries? Here they are:\n\n--- Email 1 ---\nFrom: noreply@dewa.gov.ae\nSubject: Your DEWA Tax Invoice is ready\nTax Invoice No: 700114882\nBilling Period: 01 May 2026 - 31 May 2026\nPremise No: 2049913 (Marina Gate Tower 1, Apt 1203)\nConsumption charges: AED 900.00\nMunicipality housing fee: AED 45.00\nVAT (5%): AED 47.25\nTotal due: AED 992.25\n\n--- Email 2 ---\nFrom: accounts@sparkleclean.ae\nSubject: Invoice SC-2207 - Cleaning services\nInvoice SC-2207, dated 25/05/2026\nDeep clean + turnover, Apt 1203 Marina Gate\nAmount: AED 400.00\nVAT 5%: AED 20.00\nTotal: AED 420.00\n\nFor context: Apt 1203 Marina Gate (premise 2049913) is our rev-share unit A-1203, owner Khan.", "eval_id": 1, "outputs": [{"name": "invoice_master.csv", "type": "text", "content": "source,vendor,category,invoice_no,invoice_date,period_start,period_end,premise_ref,unit_id,landlord,unit_type,currency,gross,vat,net,vat_treatment,recoverable,notes\nEmail 1 \u2014 noreply@dewa.gov.ae,DEWA,utility-dewa,700114882,2026-05-31,2026-05-01,2026-05-31,2049913,A-1203,Khan,revshare,AED,945.00,45.00,900.00,standard,Y,Marina Gate Tower 1 Apt 1203; DEWA bill split \u2014 consumption component (AED 900 net + AED 45 VAT). Recoverable utility on rev-share unit; output VAT on recharge at f8.\nEmail 1 \u2014 noreply@dewa.gov.ae,DEWA,utility-municipality,700114882,2026-05-31,2026-05-01,2026-05-31,2049913,A-1203,Khan,revshare,AED,47.25,2.25,45.00,standard,Y,Marina Gate Tower 1 Apt 1203; DEWA bill split \u2014 municipality housing fee component (AED 45 net + AED 2.25 VAT). Total DEWA invoice gross AED 992.25 = 945.00 + 47.25. Recoverable on rev-share unit.\nEmail 2 \u2014 accounts@sparkleclean.ae,SparkleClean,cleaning,SC-2207,2026-05-25,,,2049913,A-1203,Khan,revshare,AED,420.00,20.00,400.00,standard,N,Deep clean + turnover Apt 1203 Marina Gate. Cleaning is ALWAYS Silkhaus-borne (cleaning revenue recognised at booking); never recharged to landlord.\n"}, {"name": "journal_entries.md", "type": "text", "content": "## Property-cost journal entries \u2014 May 2026\n\n### DEWA \u00b7 700114882 \u00b7 utility-dewa \u00b7 A-1203 \u2014 recoverable\n| # | Dr/Cr | Account (code) | Amount (AED) | Narration |\n|---|-------|----------------|-------------:|-----------|\n| 1 | Dr | Landlord Receivable \u2014 Utilities (120060) | 900.00 | DEWA 2026-05-01 \u2014 recoverable, A-1203 |\n| 2 | Dr | VAT on Purchases AE (110038) | 45.00 | Input VAT 5% |\n| 3 | Cr | Accounts Payable (110001) | 945.00 | DEWA invoice 700114882 |\n\n**Balanced:** Dr 945.00 = Cr 945.00 \u2713\n\n### DEWA \u00b7 700114882 \u00b7 utility-municipality \u00b7 A-1203 \u2014 recoverable\n| # | Dr/Cr | Account (code) | Amount (AED) | Narration |\n|---|-------|----------------|-------------:|-----------|\n| 1 | Dr | Landlord Receivable \u2014 Utilities (120060) | 45.00 | DEWA 2026-05-01 \u2014 recoverable, A-1203 |\n| 2 | Dr | VAT on Purchases AE (110038) | 2.25 | Input VAT 5% |\n| 3 | Cr | Accounts Payable (110001) | 47.25 | DEWA invoice 700114882 |\n\n**Balanced:** Dr 47.25 = Cr 47.25 \u2713\n\n### SparkleClean \u00b7 SC-2207 \u00b7 cleaning \u00b7 A-1203 \u2014 Silkhaus-borne\n| # | Dr/Cr | Account (code) | Amount (AED) | Narration |\n|---|-------|----------------|-------------:|-----------|\n| 1 | Dr | Unit Cleaning Expenses (620013) | 400.00 | SparkleClean 2026-05-25 \u2014 Silkhaus-borne, A-1203 |\n| 2 | Dr | VAT on Purchases AE (110038) | 20.00 | Input VAT 5% |\n| 3 | Cr | Accounts Payable (110001) | 420.00 | SparkleClean invoice SC-2207 |\n\n**Balanced:** Dr 420.00 = Cr 420.00 \u2713\n\n### Totals\n| Account (code) | Dr | Cr |\n|----------------|---:|---:|\n| Accounts Payable (110001) | 0.00 | 1,412.25 |\n| VAT on Purchases AE (110038) | 67.25 | 0.00 |\n| Landlord Receivable \u2014 Utilities (120060) | 945.00 | 0.00 |\n| Unit Cleaning Expenses (620013) | 400.00 | 0.00 |\n| **TOTAL** | **1,412.25** | **1,412.25** |\n\n**All entries balance:** YES \u2713\n\n### Review flags\n- DEWA 700114882 \u2014 output VAT on the landlord recharge is raised at settlement (f8), not here\n- DEWA 700114882 \u2014 output VAT on the landlord recharge is raised at settlement (f8), not here\n"}], "grading": {"eval_id": 1, "eval_name": "eval-1-email-to-master", "configuration": "with_skill", "summary": {"pass_rate": 0.875, "passed": 7, "failed": 1, "total": 8}, "expectations": [{"text": "Invoice master has a row for each invoice (DEWA 700114882 and SparkleClean SC-2207)", "passed": true, "evidence": "both invoice numbers present"}, {"text": "Premise 2049913 is mapped to unit A-1203", "passed": true, "evidence": "2049913 -> A-1203 present"}, {"text": "DEWA recoverable cost debits Landlord Receivable \u2014 Utilities (120060)", "passed": true, "evidence": "found '120060'"}, {"text": "Cleaning is Silkhaus-borne to Unit Cleaning Expenses (620013)", "passed": true, "evidence": "found '620013'"}, {"text": "Splits 5% Input VAT (110038) and credits Accounts Payable (110001)", "passed": true, "evidence": "110038 and 110001 present"}, {"text": "Every entry balances (foots to 1,412.25)", "passed": true, "evidence": "found '1,412.25'"}, {"text": "Uses only real Silkhaus GL codes (no invented placeholders)", "passed": true, "evidence": "real codes only"}, {"text": "DEWA is booked as ONE entry (consumption + municipality combined), not split into duplicate sub-entries with repeated flags", "passed": false, "evidence": "2 DEWA sub-entries; duplicate f8 flag=True"}]}}, {"id": "eval-1-email-to-master-without_skill", "prompt": "I pulled two vendor invoices out of my inbox \u2014 can you build an invoice master row for each and then the journal entries? Here they are:\n\n--- Email 1 ---\nFrom: noreply@dewa.gov.ae\nSubject: Your DEWA Tax Invoice is ready\nTax Invoice No: 700114882\nBilling Period: 01 May 2026 - 31 May 2026\nPremise No: 2049913 (Marina Gate Tower 1, Apt 1203)\nConsumption charges: AED 900.00\nMunicipality housing fee: AED 45.00\nVAT (5%): AED 47.25\nTotal due: AED 992.25\n\n--- Email 2 ---\nFrom: accounts@sparkleclean.ae\nSubject: Invoice SC-2207 - Cleaning services\nInvoice SC-2207, dated 25/05/2026\nDeep clean + turnover, Apt 1203 Marina Gate\nAmount: AED 400.00\nVAT 5%: AED 20.00\nTotal: AED 420.00\n\nFor context: Apt 1203 Marina Gate (premise 2049913) is our rev-share unit A-1203, owner Khan.", "eval_id": 1, "outputs": [{"name": "invoice_master.csv", "type": "text", "content": "invoice_id,vendor_name,vendor_email,invoice_number,invoice_date,billing_period_start,billing_period_end,property_unit,premise_no,property_name,owner,cost_category,gl_expense_account,currency,net_amount,vat_rate,vat_amount,gross_amount,vat_treatment,rev_share_recoverable,payment_status,source,notes\nINV-0001,Dubai Electricity & Water Authority (DEWA),noreply@dewa.gov.ae,700114882,2026-05-31,2026-05-01,2026-05-31,A-1203,2049913,Marina Gate Tower 1 Apt 1203,Khan,Utilities - Electricity & Water,6410 Utilities Expense,AED,945.00,5%,47.25,992.25,Recoverable input VAT,Yes,Unpaid,Email (DEWA Tax Invoice),\"Consumption charges 900.00 + Municipality housing fee 45.00; both lines standard-rated. Invoice dated as period end.\"\nINV-0002,Sparkle Clean,accounts@sparkleclean.ae,SC-2207,2026-05-25,2026-05-25,2026-05-25,A-1203,2049913,Marina Gate Tower 1 Apt 1203,Khan,Cleaning - Turnover/Deep Clean,6420 Cleaning & Housekeeping Expense,AED,400.00,5%,20.00,420.00,Recoverable input VAT,Yes,Email (Invoice SC-2207),\"Deep clean + turnover service. Single-day service date used as invoice/billing date.\"\n"}, {"name": "journal_entries.md", "type": "text", "content": "# Journal Entries \u2014 Vendor Invoices (Property A-1203)\n\n**Entity:** Silkhaus (Dubai STR rev-share)\n**System:** NetSuite\n**Property:** Unit A-1203 \u2014 Marina Gate Tower 1, Apt 1203 (Premise 2049913), Owner: Khan\n**Currency:** AED\n**Prepared:** 2026-06-16\n\n> Note: These entries assist the close workflow but are not financial advice. Review and approve per the authorization matrix before posting.\n\n---\n\n## JE-001 \u2014 DEWA Utilities (Tax Invoice 700114882)\n\n**Date:** 2026-05-31 | **Period:** May 2026\n**Memo:** DEWA electricity & water + municipality housing fee, May 2026, Unit A-1203 (premise 2049913). Invoice 700114882.\n**Vendor:** Dubai Electricity & Water Authority (DEWA)\n\n| Line | Account | Class / Property | Debit (AED) | Credit (AED) |\n|------|---------------------------------------|------------------|------------:|------------:|\n| 1 | 6410 \u00b7 Utilities Expense | A-1203 | 945.00 | |\n| 2 | 1410 \u00b7 Input VAT Recoverable | A-1203 | 47.25 | |\n| 3 | 2010 \u00b7 Accounts Payable \u2014 DEWA | A-1203 | | 992.25 |\n| | **Totals** | | **992.25** | **992.25** |\n\n---\n\n## JE-002 \u2014 Sparkle Clean Cleaning Services (Invoice SC-2207)\n\n**Date:** 2026-05-25 | **Period:** May 2026\n**Memo:** Deep clean + turnover, Unit A-1203 (premise 2049913). Sparkle Clean invoice SC-2207.\n**Vendor:** Sparkle Clean\n\n| Line | Account | Class / Property | Debit (AED) | Credit (AED) |\n|------|---------------------------------------|------------------|------------:|------------:|\n| 1 | 6420 \u00b7 Cleaning & Housekeeping Expense | A-1203 | 400.00 | |\n| 2 | 1410 \u00b7 Input VAT Recoverable | A-1203 | 20.00 | |\n| 3 | 2011 \u00b7 Accounts Payable \u2014 Sparkle Clean| A-1203 | | 420.00 |\n| | **Totals** | | **420.00** | **420.00** |\n\n---\n\n## Totals (both entries)\n\n| | Debit (AED) | Credit (AED) |\n|---------------------------|------------:|------------:|\n| Expense (utilities + cleaning) | 1,345.00 | |\n| Input VAT recoverable | 67.25 | |\n| Accounts payable | | 1,412.25 |\n| **Total** | **1,412.25** | **1,412.25** |\n\n---\n\n## Assumptions & Notes\n\n1. **Vendor bills (AP), not cash.** Booked as NetSuite Vendor Bills crediting Accounts Payable since no payment was indicated. If paid immediately, replace the AP credit with the bank/cash account.\n2. **Input VAT recoverable (5%).** UAE short-term holiday-home rentals are standard-rated taxable supplies, so the 5% VAT on related operating costs is treated as recoverable input VAT (asset, acct 1410) rather than expensed. If A-1203 is in fact let on an exempt/long-term residential basis, VAT would instead be capitalized into the expense (utilities 992.25 / cleaning 420.00) and lines 2 removed.\n3. **DEWA municipality housing fee** is included in the utilities expense line and is VAT-taxed in the invoice (VAT 47.25 = 5% \u00d7 945.00). If your policy books the housing/municipality fee to a separate account, split line 1 into 900.00 utilities + 45.00 municipality fee.\n4. **Dates.** DEWA invoice has no explicit invoice date; used billing-period end (2026-05-31). Sparkle Clean dated 25/05/2026 (DD/MM/YYYY).\n5. **Property dimension.** Costs tagged to NetSuite class/segment A-1203 for rev-share owner reporting (owner Khan). These are operator-incurred property operating costs; whether they are rebilled/net-settled against owner rev-share is a downstream settlement step, not part of these AP entries.\n6. **Account numbers are indicative** \u2014 map to Silkhaus's actual NetSuite chart of accounts before posting.\n7. **Both entries balance** (debits = credits) and are non-reversing (actual invoices, not accruals).\n"}], "grading": {"eval_id": 1, "eval_name": "eval-1-email-to-master", "configuration": "without_skill", "summary": {"pass_rate": 0.5, "passed": 4, "failed": 4, "total": 8}, "expectations": [{"text": "Invoice master has a row for each invoice (DEWA 700114882 and SparkleClean SC-2207)", "passed": true, "evidence": "both invoice numbers present"}, {"text": "Premise 2049913 is mapped to unit A-1203", "passed": true, "evidence": "2049913 -> A-1203 present"}, {"text": "DEWA recoverable cost debits Landlord Receivable \u2014 Utilities (120060)", "passed": false, "evidence": "'120060' not present"}, {"text": "Cleaning is Silkhaus-borne to Unit Cleaning Expenses (620013)", "passed": false, "evidence": "'620013' not present"}, {"text": "Splits 5% Input VAT (110038) and credits Accounts Payable (110001)", "passed": false, "evidence": "missing 110038/110001"}, {"text": "Every entry balances (foots to 1,412.25)", "passed": true, "evidence": "found '1,412.25'"}, {"text": "Uses only real Silkhaus GL codes (no invented placeholders)", "passed": false, "evidence": "invented codes/placeholder language present"}, {"text": "DEWA is booked as ONE entry (consumption + municipality combined), not split into duplicate sub-entries with repeated flags", "passed": true, "evidence": "0 DEWA sub-entries; duplicate f8 flag=False"}]}}, {"id": "eval-2-ambiguity-flags-with_skill", "prompt": "Quick one \u2014 book this maintenance invoice: a smart-lock company 'LockSmart Ltd' (they're based in the UK) billed us AED 1,000 with no VAT shown, for a lock replacement at unit C-0500. I'm honestly not sure right now whether C-0500 is a leased unit or a rev-share one.", "eval_id": 2, "outputs": [{"name": "journal_entries.md", "type": "text", "content": "## Property-cost journal entries \u2014 Jun 2026\n\n### LockSmart Ltd \u00b7 (no invoice no.) \u00b7 repairs-maintenance \u00b7 C-0500 \u2014 recoverable\n| # | Dr/Cr | Account (code) | Amount (AED) | Narration |\n|---|-------|----------------|-------------:|-----------|\n| 1 | Dr | Landlord Receivable \u2014 R&M (120059) | 1,000.00 | LockSmart Ltd 2026-06-15 \u2014 recoverable, C-0500 (RCM) |\n| 2 | Dr | VAT on Purchases AE (110038) | 50.00 | Reverse charge 5% |\n| 3 | Cr | VAT on Sales AE (110040) | 50.00 | Reverse charge 5% |\n| 4 | Cr | Accounts Payable (110001) | 1,000.00 | LockSmart Ltd invoice (ref pending) |\n\n**Balanced:** Dr 1,050.00 = Cr 1,050.00 \u2713\n\n### Totals\n| Account (code) | Dr | Cr |\n|----------------|---:|---:|\n| Accounts Payable (110001) | 0.00 | 1,000.00 |\n| VAT on Purchases AE (110038) | 50.00 | 0.00 |\n| VAT on Sales AE (110040) | 0.00 | 50.00 |\n| Landlord Receivable \u2014 R&M (120059) | 1,000.00 | 0.00 |\n| **TOTAL** | **1,050.00** | **1,050.00** |\n\n**All entries balance:** YES \u2713\n\n### Review flags\n- LockSmart Ltd \u2014 **unit_type unknown** (lease vs rev-share): defaulted to **rev-share** per f7. Confirm. If C-0500 is actually a **lease** unit, this is Silkhaus-borne \u2014 replace line 1 with **Dr Repairs & Maintenance (620012) 1,000.00** (no landlord receivable).\n- LockSmart Ltd \u2014 **recoverable unknown**: defaulted to **RECOVERABLE** (rev-share R&M recharge \u2192 Landlord Receivable R&M 120059). Confirm the cost is recharged to the landlord per policy; if not recharged, post to **Repairs & Maintenance (620012)** instead.\n- LockSmart Ltd \u2014 **international vendor (UK-based), no VAT shown \u2192 assumed reverse charge (RCM)**, self-accounted Input VAT (110038) / Output VAT (110040) at 5%, net VAT nil. Confirm LockSmart has no UAE VAT registration (if it does and charged AED VAT, treat as `standard`).\n- LockSmart Ltd \u2014 **RCM on a recoverable cost is an edge case.** The f7 worked examples cover recoverable R&M with *standard* VAT (cost booked net to the receivable; output VAT on the recharge raised at f8). Here, because the vendor is international, the cost is booked at the bill amount (AED 1,000) to the receivable and the reverse charge is self-accounted now. Controller to confirm: (a) the AED 1,000 receivable amount, and (b) how the f8 landlord-recharge output VAT interacts with the RCM output VAT already booked here, to avoid double-counting.\n- LockSmart Ltd \u2014 **output VAT on the landlord recharge is raised at settlement (f8), not here** (standard f7 note for recoverable costs).\n- LockSmart Ltd \u2014 **no invoice/reference number provided.** Capture the vendor invoice no. before posting (narration currently \"ref pending\").\n\n---\n\n### Assumptions applied (defaults posted, per skill's \"post the default and flag\" rule)\n- **Category:** lock replacement \u2192 `repairs-maintenance`.\n- **unit_type:** unknown \u2192 **rev-share** (f7 default for utilities & R&M).\n- **Recoverable:** unknown \u2192 **Y / recoverable** (rev-share R&M is recharged by default) \u2192 Landlord Receivable \u2014 R&M (120059).\n- **VAT treatment:** UK vendor + no VAT shown \u2192 **RCM** (reverse charge), not `none`.\n- **Payment entry** (Dr A/P / Cr bank) intentionally omitted \u2014 f7 books to A/P; payment is a separate step.\n"}], "grading": {"eval_id": 2, "eval_name": "eval-2-ambiguity-flags", "configuration": "with_skill", "summary": {"pass_rate": 1.0, "passed": 6, "failed": 0, "total": 6}, "expectations": [{"text": "Applies reverse charge: debits Input VAT (110038) and credits Output VAT (110040) at 5%", "passed": true, "evidence": "110038 and 110040 present"}, {"text": "Reverse-charge VAT legs net to nil", "passed": true, "evidence": "states net VAT nil"}, {"text": "Entry balances (foots to 1,050.00)", "passed": true, "evidence": "found '1,050.00'"}, {"text": "Raises a review flag that unit type (lease vs rev-share) is unknown rather than silently guessing", "passed": true, "evidence": "flags unknown lease vs rev-share"}, {"text": "Flags that recoverability depends on lease-vs-rev-share", "passed": true, "evidence": "ties recoverability to unit type"}, {"text": "Does not invent a GL code \u2014 uses real Silkhaus codes (e.g. 120059 / 620012 / 110038 / 110040)", "passed": true, "evidence": "real Silkhaus codes used"}]}}, {"id": "eval-2-ambiguity-flags-without_skill", "prompt": "Quick one \u2014 book this maintenance invoice: a smart-lock company 'LockSmart Ltd' (they're based in the UK) billed us AED 1,000 with no VAT shown, for a lock replacement at unit C-0500. I'm honestly not sure right now whether C-0500 is a leased unit or a rev-share one.", "eval_id": 2, "outputs": [{"name": "journal_entries.md", "type": "text", "content": "# Journal Entry \u2014 LockSmart Ltd Maintenance Invoice (Unit C-0500)\n\n## Invoice summary\n\n| Field | Value |\n|---|---|\n| Vendor | LockSmart Ltd (UK-based supplier) |\n| Description | Smart-lock replacement, Unit C-0500 |\n| Invoice amount | AED 1,000.00 |\n| VAT shown on invoice | None (foreign supplier, no UAE VAT charged) |\n| Cost category | Repairs & Maintenance |\n| ERP | NetSuite |\n| VAT regime | UAE 5% VAT |\n\n---\n\n## Two flagged issues and how they are handled\n\n### 1. Reverse-charge VAT (import of services) \u2014 RESOLVED, applied\n\nLockSmart Ltd is a **UK supplier** invoicing a **UAE business** with **no VAT on the invoice**. This is an **import of services**, which falls under the **UAE reverse-charge mechanism (RCM)**.\n\nUnder RCM, Silkhaus must **self-account for output VAT at 5%** and (assuming the cost is used for taxable supplies / fully recoverable) **claim an equal input VAT**. The two legs net to **zero cash VAT** but must both be recorded and reported on the VAT return (Box 3 output + Box 10 input, reverse charge).\n\n- Reverse-charge VAT base: AED 1,000.00\n- Reverse-charge VAT @ 5% = **AED 50.00** (output) and **AED 50.00** (input, recoverable)\n\n**Net VAT cash impact: AED 0.** Net expense to the business: **AED 1,000** (the AED 50 is not a real cost because it is recovered).\n\n> Assumption: Silkhaus is VAT-registered and uses C-0500 maintenance for taxable activity, so input VAT is fully recoverable. If the unit were used for VAT-exempt supply (not the case for STR), input VAT would be irrecoverable and the AED 50 would be added to expense.\n\n### 2. C-0500 \u2014 leased unit vs. rev-share unit \u2014 UNKNOWN, assumption stated\n\nThe cost-bearer differs by unit type:\n\n- **If LEASED:** Silkhaus holds the head-lease and bears maintenance itself \u2192 debit **Silkhaus's own Repairs & Maintenance expense** (P&L).\n- **If REV-SHARE:** Silkhaus operates for the property owner; lock replacement is typically a **property/owner cost** \u2192 debit an **Owner Recoverable / Due-from-Owner** account (balance sheet), to be netted against the owner's next revenue-share payout, rather than hitting Silkhaus P&L.\n\n> **Stated assumption for the primary entry:** Because the classification is unconfirmed, I book the **primary entry as a LEASED-unit expense** (the conservative treatment \u2014 it recognizes the cost in Silkhaus's own P&L now and does not assume a recovery from an owner that may not be contractually due). **Action required:** confirm C-0500's classification in the property master. If it is a **rev-share** unit, post the **Alternative entry** below instead, which reclassifies the debit to the owner-recoverable account.\n\n---\n\n## PRIMARY journal entry \u2014 assuming C-0500 is a LEASED unit (cost = Silkhaus P&L)\n\n| Line | Account | Debit (AED) | Credit (AED) |\n|---|---|---:|---:|\n| 1 | Repairs & Maintenance \u2014 Smart Locks (P&L) | 1,000.00 | |\n| 2 | Input VAT \u2014 Recoverable (Reverse Charge) | 50.00 | |\n| 3 | Accounts Payable \u2014 LockSmart Ltd | | 1,000.00 |\n| 4 | Output VAT Payable (Reverse Charge) | | 50.00 |\n| | **Totals** | **1,050.00** | **1,050.00** |\n\n- Memo: \"LockSmart Ltd \u2014 smart-lock replacement, Unit C-0500. Import of services; 5% reverse-charge VAT self-accounted (output + recoverable input, net nil).\"\n- AP to LockSmart = **AED 1,000** (the actual amount payable to the UK supplier).\n- NetSuite tax code: reverse-charge / import-of-services code (self-assessed), so both the output and recoverable input legs flow to the VAT return automatically.\n\n---\n\n## ALTERNATIVE journal entry \u2014 if C-0500 is a REV-SHARE unit (cost = owner recoverable)\n\n| Line | Account | Debit (AED) | Credit (AED) |\n|---|---|---:|---:|\n| 1 | Owner Recoverable / Due from Property Owner (B/S) | 1,000.00 | |\n| 2 | Input VAT \u2014 Recoverable (Reverse Charge) | 50.00 | |\n| 3 | Accounts Payable \u2014 LockSmart Ltd | | 1,000.00 |\n| 4 | Output VAT Payable (Reverse Charge) | | 50.00 |\n| | **Totals** | **1,050.00** | **1,050.00** |\n\n- Memo: \"LockSmart Ltd \u2014 smart-lock replacement, rev-share Unit C-0500. Cost recoverable from owner; nets against next revenue-share payout. 5% reverse-charge VAT self-accounted (net nil).\"\n- Under this treatment the AED 1,000 is **not** a Silkhaus expense; it is parked as a receivable and cleared against the owner's payout.\n- Reverse-charge VAT handling is identical regardless of unit type (the RCM obligation sits with Silkhaus as the importing entity).\n\n---\n\n## Summary of assumptions\n\n1. **Reverse-charge VAT applies** (UK supplier \u2192 UAE business, import of services). Self-assessed output VAT AED 50 and recoverable input VAT AED 50; **net VAT cash = nil**.\n2. **Input VAT is fully recoverable** (Silkhaus is VAT-registered; STR activity is taxable).\n3. **C-0500 unit type is unconfirmed.** Primary entry assumes **leased** (Silkhaus P&L). If rev-share, use the Alternative entry (owner-recoverable). **Confirm in property master and adjust if needed.**\n4. Amount payable to LockSmart Ltd is **AED 1,000** in both scenarios (no VAT remitted to the supplier).\n"}], "grading": {"eval_id": 2, "eval_name": "eval-2-ambiguity-flags", "configuration": "without_skill", "summary": {"pass_rate": 0.6667, "passed": 4, "failed": 2, "total": 6}, "expectations": [{"text": "Applies reverse charge: debits Input VAT (110038) and credits Output VAT (110040) at 5%", "passed": false, "evidence": "missing real RCM VAT codes"}, {"text": "Reverse-charge VAT legs net to nil", "passed": true, "evidence": "states net VAT nil"}, {"text": "Entry balances (foots to 1,050.00)", "passed": true, "evidence": "found '1,050.00'"}, {"text": "Raises a review flag that unit type (lease vs rev-share) is unknown rather than silently guessing", "passed": true, "evidence": "flags unknown lease vs rev-share"}, {"text": "Flags that recoverability depends on lease-vs-rev-share", "passed": true, "evidence": "ties recoverability to unit type"}, {"text": "Does not invent a GL code \u2014 uses real Silkhaus codes (e.g. 120059 / 620012 / 110038 / 110040)", "passed": false, "evidence": "invented account name(s) present / real codes missing"}]}}], "previous_feedback": {}, "previous_outputs": {}, "benchmark": {"metadata": {"skill_name": "silkhaus-property-costs", "skill_path": "/Users/yogeshchhabria/Desktop/Dashboard/.claude/skills/silkhaus-property-costs", "executor_model": "claude (subagent)", "analyzer_model": "claude", "timestamp": "2026-06-15T20:24:01Z", "evals_run": [0, 1, 2], "runs_per_configuration": 1}, "runs": [{"eval_id": 0, "configuration": "with_skill", "run_number": 1, "result": {"pass_rate": 1.0, "passed": 9, "failed": 0, "total": 9, "time_seconds": 113.3, "tokens": 63895, "tool_calls": 0, "errors": 0}, "expectations": [{"text": "Rev-share DEWA (A-1203) debits Landlord Receivable \u2014 Utilities (120060)", "passed": true, "evidence": "found '120060'"}, {"text": "Rev-share plumbing R&M (FixIt) debits Landlord Receivable \u2014 R&M (120059)", "passed": true, "evidence": "found '120059'"}, {"text": "Turnover cleaning (SparkleClean) is Silkhaus-borne to Unit Cleaning Expenses (620013)", "passed": true, "evidence": "found '620013'"}, {"text": "Leased-unit DEWA (L-0907) is Silkhaus-borne to DEWA Consumption (640004)", "passed": true, "evidence": "found '640004'"}, {"text": "Emicool cooling on a rev-share unit also debits Landlord Receivable \u2014 Utilities (120060)", "passed": true, "evidence": "Emicool present with 120060"}, {"text": "Splits 5% Input VAT to VAT on Purchases (110038)", "passed": true, "evidence": "found '110038'"}, {"text": "Credits Accounts Payable (110001)", "passed": true, "evidence": "found '110001'"}, {"text": "Every entry balances and the totals block foots to 3,983.00", "passed": true, "evidence": "totals foot to 3,983.00"}, {"text": "Uses only real Silkhaus GL codes (no invented placeholder accounts like 'Due from Owner')", "passed": true, "evidence": "real codes, no placeholders"}], "notes": []}, {"eval_id": 1, "configuration": "with_skill", "run_number": 1, "result": {"pass_rate": 0.875, "passed": 7, "failed": 1, "total": 8, "time_seconds": 73.0, "tokens": 60501, "tool_calls": 0, "errors": 0}, "expectations": [{"text": "Invoice master has a row for each invoice (DEWA 700114882 and SparkleClean SC-2207)", "passed": true, "evidence": "both invoice numbers present"}, {"text": "Premise 2049913 is mapped to unit A-1203", "passed": true, "evidence": "2049913 -> A-1203 present"}, {"text": "DEWA recoverable cost debits Landlord Receivable \u2014 Utilities (120060)", "passed": true, "evidence": "found '120060'"}, {"text": "Cleaning is Silkhaus-borne to Unit Cleaning Expenses (620013)", "passed": true, "evidence": "found '620013'"}, {"text": "Splits 5% Input VAT (110038) and credits Accounts Payable (110001)", "passed": true, "evidence": "110038 and 110001 present"}, {"text": "Every entry balances (foots to 1,412.25)", "passed": true, "evidence": "found '1,412.25'"}, {"text": "Uses only real Silkhaus GL codes (no invented placeholders)", "passed": true, "evidence": "real codes only"}, {"text": "DEWA is booked as ONE entry (consumption + municipality combined), not split into duplicate sub-entries with repeated flags", "passed": false, "evidence": "2 DEWA sub-entries; duplicate f8 flag=True"}], "notes": []}, {"eval_id": 2, "configuration": "with_skill", "run_number": 1, "result": {"pass_rate": 1.0, "passed": 6, "failed": 0, "total": 6, "time_seconds": 74.3, "tokens": 60114, "tool_calls": 0, "errors": 0}, "expectations": [{"text": "Applies reverse charge: debits Input VAT (110038) and credits Output VAT (110040) at 5%", "passed": true, "evidence": "110038 and 110040 present"}, {"text": "Reverse-charge VAT legs net to nil", "passed": true, "evidence": "states net VAT nil"}, {"text": "Entry balances (foots to 1,050.00)", "passed": true, "evidence": "found '1,050.00'"}, {"text": "Raises a review flag that unit type (lease vs rev-share) is unknown rather than silently guessing", "passed": true, "evidence": "flags unknown lease vs rev-share"}, {"text": "Flags that recoverability depends on lease-vs-rev-share", "passed": true, "evidence": "ties recoverability to unit type"}, {"text": "Does not invent a GL code \u2014 uses real Silkhaus codes (e.g. 120059 / 620012 / 110038 / 110040)", "passed": true, "evidence": "real Silkhaus codes used"}], "notes": []}, {"eval_id": 0, "configuration": "without_skill", "run_number": 1, "result": {"pass_rate": 0.1111, "passed": 1, "failed": 8, "total": 9, "time_seconds": 76.3, "tokens": 47129, "tool_calls": 0, "errors": 0}, "expectations": [{"text": "Rev-share DEWA (A-1203) debits Landlord Receivable \u2014 Utilities (120060)", "passed": false, "evidence": "'120060' not present"}, {"text": "Rev-share plumbing R&M (FixIt) debits Landlord Receivable \u2014 R&M (120059)", "passed": false, "evidence": "'120059' not present"}, {"text": "Turnover cleaning (SparkleClean) is Silkhaus-borne to Unit Cleaning Expenses (620013)", "passed": false, "evidence": "'620013' not present"}, {"text": "Leased-unit DEWA (L-0907) is Silkhaus-borne to DEWA Consumption (640004)", "passed": false, "evidence": "'640004' not present"}, {"text": "Emicool cooling on a rev-share unit also debits Landlord Receivable \u2014 Utilities (120060)", "passed": false, "evidence": "Emicool not tied to 120060"}, {"text": "Splits 5% Input VAT to VAT on Purchases (110038)", "passed": false, "evidence": "'110038' not present"}, {"text": "Credits Accounts Payable (110001)", "passed": false, "evidence": "'110001' not present"}, {"text": "Every entry balances and the totals block foots to 3,983.00", "passed": true, "evidence": "totals foot to 3,983.00"}, {"text": "Uses only real Silkhaus GL codes (no invented placeholder accounts like 'Due from Owner')", "passed": false, "evidence": "invented/placeholder language present (Due from Owner)"}], "notes": []}, {"eval_id": 1, "configuration": "without_skill", "run_number": 1, "result": {"pass_rate": 0.5, "passed": 4, "failed": 4, "total": 8, "time_seconds": 92.7, "tokens": 49731, "tool_calls": 0, "errors": 0}, "expectations": [{"text": "Invoice master has a row for each invoice (DEWA 700114882 and SparkleClean SC-2207)", "passed": true, "evidence": "both invoice numbers present"}, {"text": "Premise 2049913 is mapped to unit A-1203", "passed": true, "evidence": "2049913 -> A-1203 present"}, {"text": "DEWA recoverable cost debits Landlord Receivable \u2014 Utilities (120060)", "passed": false, "evidence": "'120060' not present"}, {"text": "Cleaning is Silkhaus-borne to Unit Cleaning Expenses (620013)", "passed": false, "evidence": "'620013' not present"}, {"text": "Splits 5% Input VAT (110038) and credits Accounts Payable (110001)", "passed": false, "evidence": "missing 110038/110001"}, {"text": "Every entry balances (foots to 1,412.25)", "passed": true, "evidence": "found '1,412.25'"}, {"text": "Uses only real Silkhaus GL codes (no invented placeholders)", "passed": false, "evidence": "invented codes/placeholder language present"}, {"text": "DEWA is booked as ONE entry (consumption + municipality combined), not split into duplicate sub-entries with repeated flags", "passed": true, "evidence": "0 DEWA sub-entries; duplicate f8 flag=False"}], "notes": []}, {"eval_id": 2, "configuration": "without_skill", "run_number": 1, "result": {"pass_rate": 0.6667, "passed": 4, "failed": 2, "total": 6, "time_seconds": 55.6, "tokens": 43976, "tool_calls": 0, "errors": 0}, "expectations": [{"text": "Applies reverse charge: debits Input VAT (110038) and credits Output VAT (110040) at 5%", "passed": false, "evidence": "missing real RCM VAT codes"}, {"text": "Reverse-charge VAT legs net to nil", "passed": true, "evidence": "states net VAT nil"}, {"text": "Entry balances (foots to 1,050.00)", "passed": true, "evidence": "found '1,050.00'"}, {"text": "Raises a review flag that unit type (lease vs rev-share) is unknown rather than silently guessing", "passed": true, "evidence": "flags unknown lease vs rev-share"}, {"text": "Flags that recoverability depends on lease-vs-rev-share", "passed": true, "evidence": "ties recoverability to unit type"}, {"text": "Does not invent a GL code \u2014 uses real Silkhaus codes (e.g. 120059 / 620012 / 110038 / 110040)", "passed": false, "evidence": "invented account name(s) present / real codes missing"}], "notes": []}], "analyst_notes": ["Pass rate +53 pts (96% vs 43%). The lift is concentrated in GL-code fidelity and the recoverable-vs-borne control: the baseline invents placeholder codes ('Due from Owner', 1310/6410/2000) on every eval, and gets the recoverable VAT treatment wrong twice \u2014 eval-0 passes input VAT through to the owner, eval-1 expenses a recoverable DEWA bill instead of parking it on the landlord receivable.", "Baseline variance is high (\u00b129%) because eval difficulty varies: it scored 1/9 on the multi-bill batch (eval-0) but 4/6 on the single RCM invoice (eval-2), where general accounting knowledge alone gets RCM and the flag behaviour mostly right. The skill's value is largest on routine multi-bill close work, exactly the high-volume case.", "Non-discriminating assertions (both configs pass): every-entry-balances, premise->unit mapping, RCM-nets-to-nil, and raising the unknown-unit flag. These are correctness floors, not skill differentiators \u2014 keep them as guards but read the GL-code/control assertions for skill lift.", "The only with_skill miss is eval-1's DEWA bill being split into two sub-entries (consumption + municipality) with a verbatim-duplicated f8 review flag. Cosmetic but messy for a reviewer. Iteration-2 target: book one entry per invoice with combined components, and de-duplicate review flags.", "Open design question surfaced by eval-2: when unit_type is unknown the skill defaults to rev-share/recoverable (landlord receivable) and flags it; the baseline defaulted to leased/Silkhaus-borne (conservative). Worth a controller decision on which default is safer for Silkhaus.", "Cost of the skill: +12s (~87s vs 75s) and +14.5k tokens (~61.5k vs 47k) per task, from loading posting_rules.md and running build_je.py. For a finance close where a mis-coded or one-sided entry is expensive to unwind, this is a strongly favourable trade.", "Caveat: 1 run per eval per config, so the reported \u00b1stddev is across the 3 evals, not run-to-run noise. Treat absolute pass rates as directional; the +53 pt gap is large enough to be robust to that caveat."], "run_summary": {"with_skill": {"pass_rate": {"mean": 0.9583, "stddev": 0.0722, "min": 0.875, "max": 1.0}, "time_seconds": {"mean": 86.8667, "stddev": 22.9012, "min": 73.0, "max": 113.3}, "tokens": {"mean": 61503.3333, "stddev": 2080.263, "min": 60114, "max": 63895}}, "without_skill": {"pass_rate": {"mean": 0.4259, "stddev": 0.2851, "min": 0.1111, "max": 0.6667}, "time_seconds": {"mean": 74.8667, "stddev": 18.5915, "min": 55.6, "max": 92.7}, "tokens": {"mean": 46945.3333, "stddev": 2881.8928, "min": 43976, "max": 49731}}, "delta": {"pass_rate": "+0.53", "time_seconds": "+12.0", "tokens": "+14558"}}, "notes": []}};
+
+    // ---- State ----
+    let feedbackMap = {};  // run_id -> feedback text
+    let currentIndex = 0;
+    let visitedRuns = new Set();
+
+    // ---- Init ----
+    async function init() {
+      // Load saved feedback from server — but only if this isn't a fresh
+      // iteration (indicated by previous_feedback being present). When
+      // previous feedback exists, the feedback.json on disk is stale from
+      // the prior iteration and should not pre-fill the textareas.
+      const hasPrevious = Object.keys(EMBEDDED_DATA.previous_feedback || {}).length > 0
+        || Object.keys(EMBEDDED_DATA.previous_outputs || {}).length > 0;
+      if (!hasPrevious) {
+        try {
+          const resp = await fetch("/api/feedback");
+          const data = await resp.json();
+          if (data.reviews) {
+            for (const r of data.reviews) feedbackMap[r.run_id] = r.feedback;
+          }
+        } catch { /* first run, no feedback yet */ }
+      }
+
+      document.getElementById("skill-name").textContent = EMBEDDED_DATA.skill_name;
+      showRun(0);
+
+      // Wire up feedback auto-save
+      const textarea = document.getElementById("feedback");
+      let saveTimeout = null;
+      textarea.addEventListener("input", () => {
+        clearTimeout(saveTimeout);
+        document.getElementById("feedback-status").textContent = "";
+        saveTimeout = setTimeout(() => saveCurrentFeedback(), 800);
+      });
+    }
+
+    // ---- Navigation ----
+    function navigate(delta) {
+      const newIndex = currentIndex + delta;
+      if (newIndex >= 0 && newIndex < EMBEDDED_DATA.runs.length) {
+        saveCurrentFeedback();
+        showRun(newIndex);
+      }
+    }
+
+    function updateNavButtons() {
+      document.getElementById("prev-btn").disabled = currentIndex === 0;
+      document.getElementById("next-btn").disabled =
+        currentIndex === EMBEDDED_DATA.runs.length - 1;
+    }
+
+    // ---- Show a run ----
+    function showRun(index) {
+      currentIndex = index;
+      const run = EMBEDDED_DATA.runs[index];
+
+      // Progress
+      document.getElementById("progress").textContent =
+        `${index + 1} of ${EMBEDDED_DATA.runs.length}`;
+
+      // Prompt
+      document.getElementById("prompt-text").textContent = run.prompt;
+
+      // Config badge
+      const badge = document.getElementById("config-badge");
+      const configMatch = run.id.match(/(with_skill|without_skill|new_skill|old_skill)/);
+      if (configMatch) {
+        const config = configMatch[1];
+        const isBaseline = config === "without_skill" || config === "old_skill";
+        badge.textContent = config.replace(/_/g, " ");
+        badge.className = "config-badge " + (isBaseline ? "config-baseline" : "config-primary");
+        badge.style.display = "inline-block";
+      } else {
+        badge.style.display = "none";
+      }
+
+      // Outputs
+      renderOutputs(run);
+
+      // Previous outputs
+      renderPrevOutputs(run);
+
+      // Grades
+      renderGrades(run);
+
+      // Previous feedback
+      const prevFb = (EMBEDDED_DATA.previous_feedback || {})[run.id];
+      const prevEl = document.getElementById("prev-feedback");
+      if (prevFb) {
+        document.getElementById("prev-feedback-text").textContent = prevFb;
+        prevEl.style.display = "block";
+      } else {
+        prevEl.style.display = "none";
+      }
+
+      // Feedback
+      document.getElementById("feedback").value = feedbackMap[run.id] || "";
+      document.getElementById("feedback-status").textContent = "";
+
+      updateNavButtons();
+
+      // Track visited runs and promote done button when all visited
+      visitedRuns.add(index);
+      const doneBtn = document.getElementById("done-btn");
+      if (visitedRuns.size >= EMBEDDED_DATA.runs.length) {
+        doneBtn.classList.add("ready");
+      }
+
+      // Scroll main content to top
+      document.querySelector(".main").scrollTop = 0;
+    }
+
+    // ---- Render outputs ----
+    function renderOutputs(run) {
+      const container = document.getElementById("outputs-body");
+      container.innerHTML = "";
+
+      const outputs = run.outputs || [];
+      if (outputs.length === 0) {
+        container.innerHTML = '<div class="empty-state">No output files</div>';
+        return;
+      }
+
+      for (const file of outputs) {
+        const fileDiv = document.createElement("div");
+        fileDiv.className = "output-file";
+
+        // Always show file header with download link
+        const header = document.createElement("div");
+        header.className = "output-file-header";
+        const nameSpan = document.createElement("span");
+        nameSpan.textContent = file.name;
+        header.appendChild(nameSpan);
+        const dlBtn = document.createElement("a");
+        dlBtn.className = "dl-btn";
+        dlBtn.textContent = "Download";
+        dlBtn.download = file.name;
+        dlBtn.href = getDownloadUri(file);
+        header.appendChild(dlBtn);
+        fileDiv.appendChild(header);
+
+        const content = document.createElement("div");
+        content.className = "output-file-content";
+
+        if (file.type === "text") {
+          const pre = document.createElement("pre");
+          pre.textContent = file.content;
+          content.appendChild(pre);
+        } else if (file.type === "image") {
+          const img = document.createElement("img");
+          img.src = file.data_uri;
+          img.alt = file.name;
+          content.appendChild(img);
+        } else if (file.type === "pdf") {
+          const iframe = document.createElement("iframe");
+          iframe.src = file.data_uri;
+          content.appendChild(iframe);
+        } else if (file.type === "xlsx") {
+          renderXlsx(content, file.data_b64);
+        } else if (file.type === "binary") {
+          const a = document.createElement("a");
+          a.className = "download-link";
+          a.href = file.data_uri;
+          a.download = file.name;
+          a.textContent = "Download " + file.name;
+          content.appendChild(a);
+        } else if (file.type === "error") {
+          const pre = document.createElement("pre");
+          pre.textContent = file.content;
+          pre.style.color = "var(--red)";
+          content.appendChild(pre);
+        }
+
+        fileDiv.appendChild(content);
+        container.appendChild(fileDiv);
+      }
+    }
+
+    // ---- XLSX rendering via SheetJS ----
+    function renderXlsx(container, b64Data) {
+      try {
+        const raw = Uint8Array.from(atob(b64Data), c => c.charCodeAt(0));
+        const wb = XLSX.read(raw, { type: "array" });
+
+        for (let i = 0; i < wb.SheetNames.length; i++) {
+          const sheetName = wb.SheetNames[i];
+          const ws = wb.Sheets[sheetName];
+
+          if (wb.SheetNames.length > 1) {
+            const sheetLabel = document.createElement("div");
+            sheetLabel.style.cssText =
+              "font-weight:600; font-size:0.8rem; color:#b0aea5; margin-top:0.5rem; margin-bottom:0.25rem;";
+            sheetLabel.textContent = "Sheet: " + sheetName;
+            container.appendChild(sheetLabel);
+          }
+
+          const htmlStr = XLSX.utils.sheet_to_html(ws, { editable: false });
+          const wrapper = document.createElement("div");
+          wrapper.innerHTML = htmlStr;
+          container.appendChild(wrapper);
+        }
+      } catch (err) {
+        container.textContent = "Error rendering spreadsheet: " + err.message;
+      }
+    }
+
+    // ---- Grades ----
+    function renderGrades(run) {
+      const section = document.getElementById("grades-section");
+      const content = document.getElementById("grades-content");
+
+      if (!run.grading) {
+        section.style.display = "none";
+        return;
+      }
+
+      const grading = run.grading;
+      section.style.display = "block";
+      // Reset to collapsed
+      content.classList.remove("open");
+      document.getElementById("grades-arrow").classList.remove("open");
+
+      const summary = grading.summary || {};
+      const expectations = grading.expectations || [];
+
+      let html = '<div style="padding: 1rem;">';
+
+      // Summary line
+      const passRate = summary.pass_rate != null
+        ? Math.round(summary.pass_rate * 100) + "%"
+        : "?";
+      const badgeClass = summary.pass_rate >= 0.8 ? "grade-pass" : summary.pass_rate >= 0.5 ? "" : "grade-fail";
+      html += '<div class="grades-summary">';
+      html += '<span class="grade-badge ' + badgeClass + '">' + passRate + '</span>';
+      html += '<span>' + (summary.passed || 0) + ' passed, ' + (summary.failed || 0) + ' failed of ' + (summary.total || 0) + '</span>';
+      html += '</div>';
+
+      // Assertions list
+      html += '<ul class="assertion-list">';
+      for (const exp of expectations) {
+        const statusClass = exp.passed ? "pass" : "fail";
+        const statusIcon = exp.passed ? "\u2713" : "\u2717";
+        html += '<li class="assertion-item">';
+        html += '<span class="assertion-status ' + statusClass + '">' + statusIcon + '</span>';
+        html += '<span>' + escapeHtml(exp.text) + '</span>';
+        if (exp.evidence) {
+          html += '<div class="assertion-evidence">' + escapeHtml(exp.evidence) + '</div>';
+        }
+        html += '</li>';
+      }
+      html += '</ul>';
+
+      html += '</div>';
+      content.innerHTML = html;
+    }
+
+    function toggleGrades() {
+      const content = document.getElementById("grades-content");
+      const arrow = document.getElementById("grades-arrow");
+      content.classList.toggle("open");
+      arrow.classList.toggle("open");
+    }
+
+    // ---- Previous outputs (collapsible) ----
+    function renderPrevOutputs(run) {
+      const section = document.getElementById("prev-outputs-section");
+      const content = document.getElementById("prev-outputs-content");
+      const prevOutputs = (EMBEDDED_DATA.previous_outputs || {})[run.id];
+
+      if (!prevOutputs || prevOutputs.length === 0) {
+        section.style.display = "none";
+        return;
+      }
+
+      section.style.display = "block";
+      // Reset to collapsed
+      content.classList.remove("open");
+      document.getElementById("prev-outputs-arrow").classList.remove("open");
+
+      // Render the files into the content area
+      content.innerHTML = "";
+      const wrapper = document.createElement("div");
+      wrapper.style.padding = "1rem";
+
+      for (const file of prevOutputs) {
+        const fileDiv = document.createElement("div");
+        fileDiv.className = "output-file";
+
+        const header = document.createElement("div");
+        header.className = "output-file-header";
+        const nameSpan = document.createElement("span");
+        nameSpan.textContent = file.name;
+        header.appendChild(nameSpan);
+        const dlBtn = document.createElement("a");
+        dlBtn.className = "dl-btn";
+        dlBtn.textContent = "Download";
+        dlBtn.download = file.name;
+        dlBtn.href = getDownloadUri(file);
+        header.appendChild(dlBtn);
+        fileDiv.appendChild(header);
+
+        const fc = document.createElement("div");
+        fc.className = "output-file-content";
+
+        if (file.type === "text") {
+          const pre = document.createElement("pre");
+          pre.textContent = file.content;
+          fc.appendChild(pre);
+        } else if (file.type === "image") {
+          const img = document.createElement("img");
+          img.src = file.data_uri;
+          img.alt = file.name;
+          fc.appendChild(img);
+        } else if (file.type === "pdf") {
+          const iframe = document.createElement("iframe");
+          iframe.src = file.data_uri;
+          fc.appendChild(iframe);
+        } else if (file.type === "xlsx") {
+          renderXlsx(fc, file.data_b64);
+        } else if (file.type === "binary") {
+          const a = document.createElement("a");
+          a.className = "download-link";
+          a.href = file.data_uri;
+          a.download = file.name;
+          a.textContent = "Download " + file.name;
+          fc.appendChild(a);
+        }
+
+        fileDiv.appendChild(fc);
+        wrapper.appendChild(fileDiv);
+      }
+
+      content.appendChild(wrapper);
+    }
+
+    function togglePrevOutputs() {
+      const content = document.getElementById("prev-outputs-content");
+      const arrow = document.getElementById("prev-outputs-arrow");
+      content.classList.toggle("open");
+      arrow.classList.toggle("open");
+    }
+
+    // ---- Feedback (saved to server -> feedback.json) ----
+    function saveCurrentFeedback() {
+      const run = EMBEDDED_DATA.runs[currentIndex];
+      const text = document.getElementById("feedback").value;
+
+      if (text.trim() === "") {
+        delete feedbackMap[run.id];
+      } else {
+        feedbackMap[run.id] = text;
+      }
+
+      // Build reviews array from map
+      const reviews = [];
+      for (const [run_id, feedback] of Object.entries(feedbackMap)) {
+        if (feedback.trim()) {
+          reviews.push({ run_id, feedback, timestamp: new Date().toISOString() });
+        }
+      }
+
+      fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reviews, status: "in_progress" }),
+      }).then(() => {
+        document.getElementById("feedback-status").textContent = "Saved";
+      }).catch(() => {
+        // Static mode or server unavailable — no-op on auto-save,
+        // feedback will be downloaded on final submit
+        document.getElementById("feedback-status").textContent = "Will download on submit";
+      });
+    }
+
+    // ---- Done ----
+    function showDoneDialog() {
+      // Save current textarea to feedbackMap (but don't POST yet)
+      const run = EMBEDDED_DATA.runs[currentIndex];
+      const text = document.getElementById("feedback").value;
+      if (text.trim() === "") {
+        delete feedbackMap[run.id];
+      } else {
+        feedbackMap[run.id] = text;
+      }
+
+      // POST once with status: complete — include ALL runs so the model
+      // can distinguish "no feedback" (looks good) from "not reviewed"
+      const reviews = [];
+      const ts = new Date().toISOString();
+      for (const r of EMBEDDED_DATA.runs) {
+        reviews.push({ run_id: r.id, feedback: feedbackMap[r.id] || "", timestamp: ts });
+      }
+      const payload = JSON.stringify({ reviews, status: "complete" }, null, 2);
+      fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: payload,
+      }).then(() => {
+        document.getElementById("done-overlay").classList.add("visible");
+      }).catch(() => {
+        // Server not available (static mode) — download as file
+        const blob = new Blob([payload], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "feedback.json";
+        a.click();
+        URL.revokeObjectURL(url);
+        document.getElementById("done-overlay").classList.add("visible");
+      });
+    }
+
+    function closeDoneDialog() {
+      // Reset status back to in_progress
+      saveCurrentFeedback();
+      document.getElementById("done-overlay").classList.remove("visible");
+    }
+
+    // ---- Toast ----
+    function showToast(message) {
+      const toast = document.getElementById("toast");
+      toast.textContent = message;
+      toast.classList.add("visible");
+      setTimeout(() => toast.classList.remove("visible"), 2000);
+    }
+
+    // ---- Keyboard nav ----
+    document.addEventListener("keydown", (e) => {
+      // Don't capture when typing in textarea
+      if (e.target.tagName === "TEXTAREA") return;
+
+      if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+        e.preventDefault();
+        navigate(-1);
+      } else if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+        e.preventDefault();
+        navigate(1);
+      }
+    });
+
+    // ---- Util ----
+    function getDownloadUri(file) {
+      if (file.data_uri) return file.data_uri;
+      if (file.data_b64) return "data:application/octet-stream;base64," + file.data_b64;
+      if (file.type === "text") return "data:text/plain;charset=utf-8," + encodeURIComponent(file.content);
+      return "#";
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement("div");
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // ---- View switching ----
+    function switchView(view) {
+      document.querySelectorAll(".view-tab").forEach(t => t.classList.remove("active"));
+      document.querySelectorAll(".view-panel").forEach(p => p.classList.remove("active"));
+      document.querySelector(`[onclick="switchView('${view}')"]`).classList.add("active");
+      document.getElementById("panel-" + view).classList.add("active");
+    }
+
+    // ---- Benchmark rendering ----
+    function renderBenchmark() {
+      const data = EMBEDDED_DATA.benchmark;
+      if (!data) return;
+
+      // Show the tabs
+      document.getElementById("view-tabs").style.display = "flex";
+
+      const container = document.getElementById("benchmark-content");
+      const summary = data.run_summary || {};
+      const metadata = data.metadata || {};
+      const notes = data.notes || [];
+
+      let html = "";
+
+      // Header
+      html += "<h2 style='font-family: Poppins, sans-serif; margin-bottom: 0.5rem;'>Benchmark Results</h2>";
+      html += "<p style='color: var(--text-muted); font-size: 0.875rem; margin-bottom: 1.25rem;'>";
+      if (metadata.skill_name) html += "<strong>" + escapeHtml(metadata.skill_name) + "</strong> &mdash; ";
+      if (metadata.timestamp) html += metadata.timestamp + " &mdash; ";
+      if (metadata.evals_run) html += "Evals: " + metadata.evals_run.join(", ") + " &mdash; ";
+      html += (metadata.runs_per_configuration || "?") + " runs per configuration";
+      html += "</p>";
+
+      // Summary table
+      html += '<table class="benchmark-table">';
+
+      function fmtStat(stat, pct) {
+        if (!stat) return "—";
+        const suffix = pct ? "%" : "";
+        const m = pct ? (stat.mean * 100).toFixed(0) : stat.mean.toFixed(1);
+        const s = pct ? (stat.stddev * 100).toFixed(0) : stat.stddev.toFixed(1);
+        return m + suffix + " ± " + s + suffix;
+      }
+
+      function deltaClass(val) {
+        if (!val) return "";
+        const n = parseFloat(val);
+        if (n > 0) return "benchmark-delta-positive";
+        if (n < 0) return "benchmark-delta-negative";
+        return "";
+      }
+
+      // Discover config names dynamically (everything except "delta")
+      const configs = Object.keys(summary).filter(k => k !== "delta");
+      const configA = configs[0] || "config_a";
+      const configB = configs[1] || "config_b";
+      const labelA = configA.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+      const labelB = configB.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+      const a = summary[configA] || {};
+      const b = summary[configB] || {};
+      const delta = summary.delta || {};
+
+      html += "<thead><tr><th>Metric</th><th>" + escapeHtml(labelA) + "</th><th>" + escapeHtml(labelB) + "</th><th>Delta</th></tr></thead>";
+      html += "<tbody>";
+
+      html += "<tr><td><strong>Pass Rate</strong></td>";
+      html += "<td>" + fmtStat(a.pass_rate, true) + "</td>";
+      html += "<td>" + fmtStat(b.pass_rate, true) + "</td>";
+      html += '<td class="' + deltaClass(delta.pass_rate) + '">' + (delta.pass_rate || "—") + "</td></tr>";
+
+      // Time (only show row if data exists)
+      if (a.time_seconds || b.time_seconds) {
+        html += "<tr><td><strong>Time (s)</strong></td>";
+        html += "<td>" + fmtStat(a.time_seconds, false) + "</td>";
+        html += "<td>" + fmtStat(b.time_seconds, false) + "</td>";
+        html += '<td class="' + deltaClass(delta.time_seconds) + '">' + (delta.time_seconds ? delta.time_seconds + "s" : "—") + "</td></tr>";
+      }
+
+      // Tokens (only show row if data exists)
+      if (a.tokens || b.tokens) {
+        html += "<tr><td><strong>Tokens</strong></td>";
+        html += "<td>" + fmtStat(a.tokens, false) + "</td>";
+        html += "<td>" + fmtStat(b.tokens, false) + "</td>";
+        html += '<td class="' + deltaClass(delta.tokens) + '">' + (delta.tokens || "—") + "</td></tr>";
+      }
+
+      html += "</tbody></table>";
+
+      // Per-eval breakdown (if runs data available)
+      const runs = data.runs || [];
+      if (runs.length > 0) {
+        const evalIds = [...new Set(runs.map(r => r.eval_id))].sort((a, b) => a - b);
+
+        html += "<h3 style='font-family: Poppins, sans-serif; margin-bottom: 0.75rem;'>Per-Eval Breakdown</h3>";
+
+        const hasTime = runs.some(r => r.result && r.result.time_seconds != null);
+        const hasErrors = runs.some(r => r.result && r.result.errors > 0);
+
+        for (const evalId of evalIds) {
+          const evalRuns = runs.filter(r => r.eval_id === evalId);
+          const evalName = evalRuns[0] && evalRuns[0].eval_name ? evalRuns[0].eval_name : "Eval " + evalId;
+
+          html += "<h4 style='font-family: Poppins, sans-serif; margin: 1rem 0 0.5rem; color: var(--text);'>" + escapeHtml(evalName) + "</h4>";
+          html += '<table class="benchmark-table">';
+          html += "<thead><tr><th>Config</th><th>Run</th><th>Pass Rate</th>";
+          if (hasTime) html += "<th>Time (s)</th>";
+          if (hasErrors) html += "<th>Crashes During Execution</th>";
+          html += "</tr></thead>";
+          html += "<tbody>";
+
+          // Group by config and render with average rows
+          const configGroups = [...new Set(evalRuns.map(r => r.configuration))];
+          for (let ci = 0; ci < configGroups.length; ci++) {
+            const config = configGroups[ci];
+            const configRuns = evalRuns.filter(r => r.configuration === config);
+            if (configRuns.length === 0) continue;
+
+            const rowClass = ci === 0 ? "benchmark-row-with" : "benchmark-row-without";
+            const configLabel = config.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+
+            for (const run of configRuns) {
+              const r = run.result || {};
+              const prClass = r.pass_rate >= 0.8 ? "benchmark-delta-positive" : r.pass_rate < 0.5 ? "benchmark-delta-negative" : "";
+              html += '<tr class="' + rowClass + '">';
+              html += "<td>" + configLabel + "</td>";
+              html += "<td>" + run.run_number + "</td>";
+              html += '<td class="' + prClass + '">' + ((r.pass_rate || 0) * 100).toFixed(0) + "% (" + (r.passed || 0) + "/" + (r.total || 0) + ")</td>";
+              if (hasTime) html += "<td>" + (r.time_seconds != null ? r.time_seconds.toFixed(1) : "—") + "</td>";
+              if (hasErrors) html += "<td>" + (r.errors || 0) + "</td>";
+              html += "</tr>";
+            }
+
+            // Average row
+            const rates = configRuns.map(r => (r.result || {}).pass_rate || 0);
+            const avgRate = rates.reduce((a, b) => a + b, 0) / rates.length;
+            const avgPrClass = avgRate >= 0.8 ? "benchmark-delta-positive" : avgRate < 0.5 ? "benchmark-delta-negative" : "";
+            html += '<tr class="benchmark-row-avg ' + rowClass + '">';
+            html += "<td>" + configLabel + "</td>";
+            html += "<td>Avg</td>";
+            html += '<td class="' + avgPrClass + '">' + (avgRate * 100).toFixed(0) + "%</td>";
+            if (hasTime) {
+              const times = configRuns.map(r => (r.result || {}).time_seconds).filter(t => t != null);
+              html += "<td>" + (times.length ? (times.reduce((a, b) => a + b, 0) / times.length).toFixed(1) : "—") + "</td>";
+            }
+            if (hasErrors) html += "<td></td>";
+            html += "</tr>";
+          }
+          html += "</tbody></table>";
+
+          // Per-assertion detail for this eval
+          const runsWithExpectations = {};
+          for (const config of configGroups) {
+            runsWithExpectations[config] = evalRuns.filter(r => r.configuration === config && r.expectations && r.expectations.length > 0);
+          }
+          const hasAnyExpectations = Object.values(runsWithExpectations).some(runs => runs.length > 0);
+          if (hasAnyExpectations) {
+            // Collect all unique assertion texts across all configs
+            const allAssertions = [];
+            const seen = new Set();
+            for (const config of configGroups) {
+              for (const run of runsWithExpectations[config]) {
+                for (const exp of (run.expectations || [])) {
+                  if (!seen.has(exp.text)) {
+                    seen.add(exp.text);
+                    allAssertions.push(exp.text);
+                  }
+                }
+              }
+            }
+
+            html += '<table class="benchmark-table" style="margin-top: 0.5rem;">';
+            html += "<thead><tr><th>Assertion</th>";
+            for (const config of configGroups) {
+              const label = config.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+              html += "<th>" + escapeHtml(label) + "</th>";
+            }
+            html += "</tr></thead><tbody>";
+
+            for (const assertionText of allAssertions) {
+              html += "<tr><td>" + escapeHtml(assertionText) + "</td>";
+
+              for (const config of configGroups) {
+                html += "<td>";
+                for (const run of runsWithExpectations[config]) {
+                  const exp = (run.expectations || []).find(e => e.text === assertionText);
+                  if (exp) {
+                    const cls = exp.passed ? "benchmark-delta-positive" : "benchmark-delta-negative";
+                    const icon = exp.passed ? "\u2713" : "\u2717";
+                    html += '<span class="' + cls + '" title="Run ' + run.run_number + ': ' + escapeHtml(exp.evidence || "") + '">' + icon + "</span> ";
+                  } else {
+                    html += "— ";
+                  }
+                }
+                html += "</td>";
+              }
+              html += "</tr>";
+            }
+            html += "</tbody></table>";
+          }
+        }
+      }
+
+      // Notes
+      if (notes.length > 0) {
+        html += '<div class="benchmark-notes">';
+        html += "<h3>Analysis Notes</h3>";
+        html += "<ul>";
+        for (const note of notes) {
+          html += "<li>" + escapeHtml(note) + "</li>";
+        }
+        html += "</ul></div>";
+      }
+
+      container.innerHTML = html;
+    }
+
+    // ---- Start ----
+    init();
+    renderBenchmark();
+  </script>
+</body>
+</html>

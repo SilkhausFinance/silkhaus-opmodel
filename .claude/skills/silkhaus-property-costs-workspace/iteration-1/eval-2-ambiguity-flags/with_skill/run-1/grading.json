@@ -1,0 +1,43 @@
+{
+  "eval_id": 2,
+  "eval_name": "eval-2-ambiguity-flags",
+  "configuration": "with_skill",
+  "summary": {
+    "pass_rate": 1.0,
+    "passed": 6,
+    "failed": 0,
+    "total": 6
+  },
+  "expectations": [
+    {
+      "text": "Applies reverse charge: debits Input VAT (110038) and credits Output VAT (110040) at 5%",
+      "passed": true,
+      "evidence": "110038 and 110040 present"
+    },
+    {
+      "text": "Reverse-charge VAT legs net to nil",
+      "passed": true,
+      "evidence": "states net VAT nil"
+    },
+    {
+      "text": "Entry balances (foots to 1,050.00)",
+      "passed": true,
+      "evidence": "found '1,050.00'"
+    },
+    {
+      "text": "Raises a review flag that unit type (lease vs rev-share) is unknown rather than silently guessing",
+      "passed": true,
+      "evidence": "flags unknown lease vs rev-share"
+    },
+    {
+      "text": "Flags that recoverability depends on lease-vs-rev-share",
+      "passed": true,
+      "evidence": "ties recoverability to unit type"
+    },
+    {
+      "text": "Does not invent a GL code \u2014 uses real Silkhaus codes (e.g. 120059 / 620012 / 110038 / 110040)",
+      "passed": true,
+      "evidence": "real Silkhaus codes used"
+    }
+  ]
+}

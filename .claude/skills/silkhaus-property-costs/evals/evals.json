@@ -1,0 +1,26 @@
+{
+  "skill_name": "silkhaus-property-costs",
+  "evals": [
+    {
+      "id": 0,
+      "name": "mixed-property-batch",
+      "prompt": "It's the May 2026 close and I need to book this month's property bills as journal entries — give me a table I can review before posting. All amounts are AED and include 5% VAT where applicable:\n- DEWA electricity & water for unit A-1203 (rev-share, owner Khan): AED 1,260\n- Turnover cleaning by SparkleClean for unit A-1203: AED 420\n- Plumbing repair by FixIt at unit A-1203 (rev-share): AED 735\n- DEWA for unit L-0907 (this is one of our leased units): AED 980\n- Emicool district cooling for unit B-0801 (rev-share, owner Mensah): AED 588",
+      "expected_output": "Five balanced journal entries using Silkhaus GL codes. A-1203 DEWA -> Landlord Receivable Utilities (120060) recoverable; SparkleClean cleaning -> Unit Cleaning Expenses (620013) Silkhaus-borne; FixIt plumbing -> Landlord Receivable R&M (120059) recoverable; L-0907 DEWA -> DEWA Consumption (640004) Silkhaus-borne (lease); Emicool -> Landlord Receivable Utilities (120060) recoverable. Each splits 5% Input VAT (110038) and credits Accounts Payable (110001). Every entry balances; a totals block foots.",
+      "files": []
+    },
+    {
+      "id": 1,
+      "name": "email-to-master",
+      "prompt": "I pulled two vendor invoices out of my inbox — can you build an invoice master row for each and then the journal entries? Here they are:\n\n--- Email 1 ---\nFrom: noreply@dewa.gov.ae\nSubject: Your DEWA Tax Invoice is ready\nTax Invoice No: 700114882\nBilling Period: 01 May 2026 - 31 May 2026\nPremise No: 2049913 (Marina Gate Tower 1, Apt 1203)\nConsumption charges: AED 900.00\nMunicipality housing fee: AED 45.00\nVAT (5%): AED 47.25\nTotal due: AED 992.25\n\n--- Email 2 ---\nFrom: accounts@sparkleclean.ae\nSubject: Invoice SC-2207 - Cleaning services\nInvoice SC-2207, dated 25/05/2026\nDeep clean + turnover, Apt 1203 Marina Gate\nAmount: AED 400.00\nVAT 5%: AED 20.00\nTotal: AED 420.00\n\nFor context: Apt 1203 Marina Gate (premise 2049913) is our rev-share unit A-1203, owner Khan.",
+      "expected_output": "An invoice-master table with two rows (DEWA + SparkleClean) populated with vendor, category, invoice_no, dates, premise_ref, unit_id A-1203, unit_type revshare, amounts, vat_treatment standard. Then journal entries: DEWA recoverable -> Landlord Receivable Utilities (120060) + Input VAT (110038) / A/P (110001); cleaning -> Unit Cleaning Expenses (620013) Silkhaus-borne + Input VAT / A/P. Both balance. Note DEWA has consumption + municipality components.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "ambiguity-flags",
+      "prompt": "Quick one — book this maintenance invoice: a smart-lock company 'LockSmart Ltd' (they're based in the UK) billed us AED 1,000 with no VAT shown, for a lock replacement at unit C-0500. I'm honestly not sure right now whether C-0500 is a leased unit or a rev-share one.",
+      "expected_output": "A balanced entry that (a) applies reverse-charge VAT because the vendor is international/UK (Dr Input VAT 110038 / Cr Output VAT 110040 at 5%), (b) handles the unknown unit type by posting a sensible default and RAISING a review flag rather than silently guessing, and (c) flags that recoverability depends on lease-vs-rev-share. Should not invent a GL code; should surface the assumptions for the controller.",
+      "files": []
+    }
+  ]
+}
