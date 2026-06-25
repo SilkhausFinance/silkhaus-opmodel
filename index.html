@@ -544,7 +544,7 @@ body{
 .page-head h1,.page-head p{position:relative}
 .flow-page-head{display:flex;align-items:flex-end;justify-content:space-between;min-height:132px;background:linear-gradient(135deg,#ffffff 0%,#f9fbfd 52%,#eaf7fa 100%)}
 [data-theme="dark"] .flow-page-head{background:linear-gradient(135deg,var(--panel) 0%,var(--panel-2) 56%,#132c36 100%)}
-.flow-eyebrow{font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--cyan2);margin-bottom:7px}
+.flow-eyebrow{font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--cyan2);margin-bottom:7px}
 .flow-console{
   display:grid;grid-template-columns:minmax(360px,1fr) auto;gap:14px;align-items:stretch;margin-bottom:14px
 }
@@ -560,7 +560,7 @@ body{
   flex:0 0 auto;width:42px;height:42px;border-radius:12px;background:var(--pc);box-shadow:0 0 0 8px color-mix(in srgb,var(--pc) 14%,transparent);position:relative
 }
 .flow-pulse::after{content:"";position:absolute;inset:12px;border-radius:50%;background:#fff;opacity:.88}
-.flow-now-k{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.09em;color:var(--ink2)}
+.flow-now-k{font-size:10.5px;font-weight:700;letter-spacing:.03em;color:var(--ink2)}
 .flow-now-t{font-size:20px;line-height:1.22;font-weight:700;color:var(--ink-strong);letter-spacing:-.02em;max-width:680px}
 .flow-mini-stats.compact{display:grid;grid-template-columns:repeat(2,148px);gap:10px}
 .flow-mini-stats.compact .flow-mini{padding:13px 14px;border:1px solid var(--line2);background:var(--panel);box-shadow:var(--shadow)}
@@ -1105,6 +1105,11 @@ body::before{
   .flow-workspace{grid-template-columns:1fr}
   .flow-ledger-panel{position:relative;top:auto}
 }
+/* ── process quick-nav strip ── */
+.proc-qnav{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 4px}
+.proc-qnav-btn{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 14px;font-size:12.5px;font-weight:600;color:var(--ink2);cursor:pointer;transition:background .12s,border-color .12s,color .12s}
+.proc-qnav-btn:hover{background:var(--grad-soft);border-color:var(--accent);color:var(--accent)}
+
 /* ── team mode: hide all editing tools ── */
 .team-mode .ed-pen,
 .team-mode .ed-add,
@@ -1122,7 +1127,6 @@ body::before{
   <div class="logo"><span class="mk">✦</span> Finance@silkhaus</div>
   <div class="spacer"></div>
   <span class="who">Silkhaus · Finance operating model</span>
-  <button class="btn-ghost icon" id="themeBtn" onclick="toggleTheme()" title="Toggle light / dark">🌙</button>
 </div>
 <div class="navtabs" id="tabs"></div>
 <div class="wrap" id="view"></div>
@@ -1925,7 +1929,7 @@ const TABS_ALL=[
   {id:"org",  label:"Org Structure", icon:"◇"},
   {id:"act",  label:"Activity Master", icon:"☷"},
   {id:"assign",label:"Assign Work", icon:"⇄"},
-  {id:"proc", label:"Business Flow", icon:"↳"}
+  {id:"proc", label:"Processes", icon:"↳"}
 ];
 const TABS=TEAM_MODE?TABS_ALL.filter(t=>t.id==="proc"):TABS_ALL;
 function renderTabs(){
@@ -2391,8 +2395,9 @@ function viewFlow(){
   const selected=(filtered.find(s=>s.id===FLOW_OPEN)||filtered[0]||ordered[0]);
   const entryCount=ordered.reduce((n,s)=>n+(s.entries||[]).length,0);
   const accountCount=new Set(ordered.flatMap(s=>s.accounts||[])).size;
-  let h=`<div class="page-head flow-page-head"><div><div class="flow-eyebrow">Revenue-share lifecycle</div><h1>Company flow — business event to accounting entry</h1><p>Landlord onboarding → unit activation → guest booking → collections → taxes → landlord settlement → close</p></div></div>`;
+  let h=`<div class="page-head flow-page-head"><div><div class="flow-eyebrow">Revenue-share lifecycle</div><h1>Business event to accounting entry</h1><p>Landlord onboarding → unit activation → guest booking → collections → taxes → landlord settlement → close</p></div></div>`;
   h+=procModeBar();
+  h+=`<div class="proc-qnav">${DB.processes.map(p=>`<button class="proc-qnav-btn" onclick="openDetail('${p.id}')" title="${esc(p.name)}">${esc(p.area)}</button>`).join('')}</div>`;
   h+=`<div class="flow-console">
     <div class="flow-now" style="--pc:${phaseOf(selected).color}">
       <span class="flow-pulse"></span>
@@ -2608,7 +2613,7 @@ function viewProcDetail(){
   const proc=DB.processes.find(p=>p.id===PROC_OPEN)||DB.processes[0];
   const changes=(proc.risks||[]).length+(proc.suggested||[]).length;
   let h=`<div class="page-head"><h1>Process detail</h1><p>The full current-state map for this process — how it runs today, its pain points, and what needs to change.</p></div>`;
-  h+=`<div style="margin-bottom:12px"><button class="btn sm ghost" onclick="backToFlow()">← Back to the flow</button></div>`;
+  h+=`<div style="margin-bottom:12px"><button class="btn sm ghost" onclick="backToFlow()">← Back to processes</button></div>`;
   h+=`<div class="proc-tabs">`+DB.processes.map(p=>{
     const filled=(p.current.length||(p.suggested||[]).length||p.journal.length);
     return `<button class="proc-pill ${p.id===PROC_OPEN?'active':''}" onclick="openProc('${p.id}')">${esc(p.name)}${filled?'':' <span style="opacity:.6">· not yet captured</span>'}</button>`;
