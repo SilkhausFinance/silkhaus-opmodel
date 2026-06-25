@@ -147,7 +147,7 @@ button{font-family:inherit;cursor:pointer}
 
 /* tables */
 table{width:100%;border-collapse:collapse;font-size:13px}
-thead th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--ink2);font-weight:600;padding:8px 10px;border-bottom:2px solid var(--line2)}
+thead th{text-align:left;font-size:11px;letter-spacing:.1px;color:var(--ink2);font-weight:600;padding:8px 10px;border-bottom:2px solid var(--line2)}
 tbody td{padding:10px;border-bottom:1px solid var(--line2);vertical-align:top}
 tbody tr{transition:background .12s}
 tbody tr:hover{background:var(--hover)}
@@ -257,7 +257,7 @@ tbody tr:hover{background:var(--hover)}
 .flow-shell{display:grid;grid-template-columns:minmax(360px,1fr) minmax(420px,.95fr);gap:18px;align-items:start}
 .flow-hero{display:grid;grid-template-columns:1.2fr .8fr;gap:14px;margin-bottom:14px}
 .flow-hero-card{border:1px solid var(--line2);border-radius:16px;background:linear-gradient(135deg,var(--panel),var(--panel-2));box-shadow:var(--shadow);padding:18px 20px}
-.flow-hero-k{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--teal);margin-bottom:7px}
+.flow-hero-k{font-size:11px;font-weight:700;color:var(--teal);margin-bottom:7px}
 .flow-hero-t{font-size:20px;line-height:1.2;font-weight:750;color:var(--ink-strong);letter-spacing:-.02em}
 .flow-hero-p{font-size:12.5px;line-height:1.55;color:var(--ink2);margin-top:8px}
 .flow-mini-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
@@ -277,14 +277,14 @@ tbody tr:hover{background:var(--hover)}
 .stage-tile:nth-child(2n) .stage-arrow{display:none}
 .flow-focus{position:sticky;top:84px;border:1px solid var(--line2);border-radius:18px;background:var(--panel);box-shadow:var(--shadow-lg);overflow:hidden}
 .focus-top{padding:17px 18px;background:linear-gradient(135deg,color-mix(in srgb,var(--pc) 15%,white),var(--panel));border-bottom:1px solid var(--line2)}
-.focus-phase{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--pc);margin-bottom:8px}
+.focus-phase{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;color:var(--pc);margin-bottom:8px}
 .focus-dot{width:9px;height:9px;border-radius:50%;background:var(--pc);box-shadow:0 0 0 4px color-mix(in srgb,var(--pc) 18%,transparent)}
 .focus-title{font-size:20px;line-height:1.18;font-weight:800;color:var(--ink-strong);letter-spacing:-.02em}
 .focus-sub{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
 .focus-body{padding:16px 18px}
 .focus-sec{border-top:1px solid var(--line2);padding-top:13px;margin-top:13px}
 .focus-sec:first-child{border-top:none;padding-top:0;margin-top:0}
-.focus-sec-h{font-size:11px;text-transform:uppercase;letter-spacing:.07em;font-weight:800;color:var(--ink2);margin-bottom:7px}
+.focus-sec-h{font-size:11px;font-weight:700;color:var(--ink2);margin-bottom:7px}
 .focus-copy{font-size:13px;line-height:1.6;color:var(--ink)}
 .focus-steps{margin:0;padding-left:19px}
 .focus-steps li{font-size:12.5px;line-height:1.45;color:var(--ink);margin-bottom:6px}
@@ -299,7 +299,7 @@ tbody tr:hover{background:var(--hover)}
 .biz-flow{display:flex;flex-direction:column;gap:10px}
 .biz-node{position:relative;border:1px solid var(--line2);border-left:4px solid var(--teal);border-radius:13px;background:var(--panel);padding:12px 14px;box-shadow:var(--shadow)}
 .biz-node:not(:last-child)::after{content:"↓";position:absolute;left:50%;bottom:-19px;transform:translateX(-50%);width:24px;height:24px;border-radius:50%;background:var(--blue-lt);color:#0d7e94;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;z-index:1}
-.biz-node .biz-k{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:#0d7e94;font-weight:700;margin-bottom:5px}
+.biz-node .biz-k{font-size:10.5px;color:#0d7e94;font-weight:700;margin-bottom:5px}
 .biz-node .biz-t{font-size:13px;line-height:1.45;color:var(--ink-strong);font-weight:500}
 .impact-card{border:1px solid var(--line2);border-radius:13px;background:var(--panel);box-shadow:var(--shadow);margin-bottom:10px;overflow:hidden}
 .impact-h{padding:10px 13px;background:var(--panel-2);border-bottom:1px solid var(--line2);font-size:12.5px;font-weight:700;color:var(--ink-strong)}
@@ -307,7 +307,7 @@ tbody tr:hover{background:var(--hover)}
 .impact-line{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
 .impact-line:last-child{margin-bottom:0}
 .impact-cell{border:1px solid var(--line2);border-radius:9px;padding:8px 9px;background:var(--panel)}
-.impact-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink2);font-weight:700;margin-bottom:3px}
+.impact-lbl{font-size:10px;color:var(--ink2);font-weight:700;margin-bottom:3px}
 .impact-v{font-size:12px;color:var(--ink-strong);line-height:1.35}
 .biz-note{font-size:12.5px;line-height:1.55;color:var(--ink2)}
 @media(max-width:900px){.biz-grid{grid-template-columns:1fr}}
@@ -329,14 +329,14 @@ tbody tr:hover{background:var(--hover)}
 .flow-tt{flex:1 1 auto;min-width:0}
 .flow-title{font-weight:600;color:var(--ink-strong);font-size:14.5px}
 .flow-trig{font-size:12.5px;color:var(--ink-soft);margin-top:4px}
-.flow-trig-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--pc);border:1px solid var(--pc);border-radius:6px;padding:0 5px;margin-right:6px;opacity:.85}
+.flow-trig-lbl{font-size:10px;font-weight:700;color:var(--pc);border:1px solid var(--pc);border-radius:6px;padding:0 5px;margin-right:6px;opacity:.85}
 .flow-meta{flex:0 0 auto;display:flex;align-items:center;gap:7px}
 .flow-caret{color:var(--ink2);font-size:12px;width:12px;text-align:center}
 .flow-body{border-top:1px solid var(--line2);padding:14px 16px;background:var(--panel-2);animation:flowIn .2s ease}
 @keyframes flowIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
 .flow-sec{margin-bottom:15px}
 .flow-sec:last-child{margin-bottom:2px}
-.flow-sec-h{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ink2);margin-bottom:7px;display:flex;align-items:center;gap:6px}
+.flow-sec-h{font-size:11px;font-weight:700;color:var(--ink2);margin-bottom:7px;display:flex;align-items:center;gap:6px}
 .flow-sec-sub{font-weight:500;text-transform:none;letter-spacing:0;color:var(--ink2);margin-left:5px}
 .flow-treat{font-size:13px;line-height:1.6;color:var(--ink)}
 table.flow-je{margin:0}
@@ -353,7 +353,7 @@ table.flow-je td.dr,table.flow-je td.cr{font-size:12px;white-space:normal}
 .empty-tmpl{border:1.5px dashed var(--line);border-radius:12px;padding:26px;text-align:center;color:var(--ink2);background:var(--panel-2)}
 .je-table td:first-child{font-weight:500;color:var(--ink-strong)}
 .dr{color:#0d7e94;font-weight:500}.cr{color:#b5740f;font-weight:500}
-.je-group td{background:var(--panel-3);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--ink2);padding:7px 10px}
+.je-group td{background:var(--panel-3);font-size:11px;font-weight:700;color:var(--ink2);padding:7px 10px}
 .note-block{padding:12px 0;border-bottom:1px solid var(--line2)}
 .note-block:last-child{border-bottom:none;padding-bottom:0}
 .note-block .note-t{font-weight:600;color:var(--ink-strong);font-size:13px;margin-bottom:3px}
@@ -410,7 +410,7 @@ textarea{resize:vertical;min-height:60px}
 .edcell:hover{box-shadow:inset 0 0 0 2px var(--accent);border-radius:7px}
 .flow-stagebar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding-top:11px;margin-top:6px;border-top:1px dashed var(--line2);opacity:.5;transition:opacity .15s}
 .flow-card:hover .flow-stagebar{opacity:1}
-.flow-stagebar .lbl{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ink2)}
+.flow-stagebar .lbl{font-size:10.5px;font-weight:700;color:var(--ink2)}
 .flow-stagebar select{width:auto;font-size:12px;padding:5px 8px;border-radius:8px}
 .ed-tool-btn{font-size:11px;font-weight:600;color:var(--ink2);background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:4px 9px;cursor:pointer;transition:all .12s}
 .ed-tool-btn:hover{border-color:var(--accent);color:var(--accent)}
@@ -1018,8 +1018,6 @@ body::before{
 }
 .flow-section-card h3{
   font-size:13px;
-  letter-spacing:.06em;
-  text-transform:uppercase;
   margin-bottom:8px;
   color:#526177;
 }
