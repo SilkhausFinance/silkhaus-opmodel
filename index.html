@@ -197,7 +197,6 @@ tbody tr:hover{background:var(--hover)}
 .pcard:hover{transform:translateY(-1px);box-shadow:var(--shadow-lg)}
 .pcard:active{cursor:grabbing}
 .pcard.dragging{opacity:.4}
-.pcard.kpr{border-left-color:var(--red)}
 .pcard.amoved{border-left-color:var(--amber);background:var(--moved-bg)}
 .pcard.anew{border-left-color:var(--teal);border-left-width:3px;background:var(--panel-2);border-style:dashed}
 .mdot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--amber);margin-right:6px;vertical-align:middle}
@@ -897,9 +896,6 @@ body::before{
   border-color:#dfe4ed;
   border-left-color:#0d9488;
 }
-.pcard.kpr{
-  border-left-color:#c2410c;
-}
 .pcard.amoved{
   border-left-color:#b7791f;
   background:#fffaf0;
@@ -1251,7 +1247,7 @@ const SEED = {
 const PROCESS_SEED = [
   {
     id:"rev-o2c", area:"Revenue / O2C", name:"Revenue Recognition & Booking Accounting",
-    owner:"Sai", backup:"— none assigned (key-person risk) —",
+    owner:"Sai", backup:"— none assigned —",
     systems:"NetSuite (ERP) · Guesty (PMS) · OTA portals",
     frequency:"Continuous — CSVs arrive ~daily; revenue accounting run every ~3 days; landlord & true-up entries at month-end",
     handoffs:"Feeds Collections / BRS (Pawan) and GL & Reporting (Simran)",
@@ -1311,7 +1307,7 @@ const PROCESS_SEED = [
       {t:"Snapshot the ADR/total used at the moment revenue was recognised; reconcile the current Guesty value vs the stored snapshot every cycle and flag deltas.", c:"Makes recognised revenue auditable against live Guesty actuals."},
       {t:"Standard adjustment-entry template (revenue, advance revenue, AR, landlord payable/receivable) with an audit trail; periodic true-up to current actuals instead of locking ADR at booking.", c:"Corrections become consistent and reviewable."},
       {t:"Bring all revenue — including furniture / onboarding — under a single owner/team with a defined source-to-recognition path.", c:"Removes fragmented ownership and completeness risk."},
-      {t:"Assign and cross-train a backup (e.g. ramp Khaja under Sai); move any reconciliation/BRS sign-off to an independent reviewer.", c:"Removes the key-person dependency and the collections self-review SoD."}
+      {t:"Assign and cross-train a backup (e.g. ramp Khaja under Sai); move any reconciliation/BRS sign-off to an independent reviewer.", c:"Reduces concentration risk and addresses the collections self-review SoD."}
     ]
   },
   {
@@ -1931,10 +1927,8 @@ const TABS_ALL=[
 ];
 const TABS=TEAM_MODE?TABS_ALL.filter(t=>t.id==="proc"):TABS_ALL;
 function renderTabs(){
-  const kpr=keyPersonRisks().length;
   document.getElementById("tabs").innerHTML=TABS.map(t=>{
-    const badge=(t.id==="assign"&&kpr)?`<span class="cnt">${kpr}</span>`:"";
-    return `<button class="tab ${TAB===t.id?'active':''}" onclick="setTab('${t.id}')"><span class="tab-ico">${t.icon}</span><span>${t.label}</span>${badge}</button>`;
+    return `<button class="tab ${TAB===t.id?'active':''}" onclick="setTab('${t.id}')"><span class="tab-ico">${t.icon}</span><span>${t.label}</span></button>`;
   }).join("");
 }
 function setTab(t){TAB=t;window.scrollTo({top:0,behavior:"auto"});render();}
@@ -1976,12 +1970,10 @@ function viewOrg(){
     <div class="stat"><div class="n">${team.length}</div><div class="l">Operating team</div></div>
     <div class="stat gr"><div class="n">${intl.length}</div><div class="l">Internal</div></div>
     <div class="stat amb"><div class="n">${ext.length}</div><div class="l">External contractors</div></div>
-    <div class="stat warn"><div class="n">${extSole.length}</div><div class="l">Sole-owned by externals</div></div>
   </div>`;
   h+=`<div class="card"><div class="card-h"><h3>Reporting line</h3><span class="sub">internal hierarchy · department chips per person</span></div>
     <div class="tree-scroll"><div class="org-wrap tree"><ul>${roots.map(orgLi).join("")}</ul></div></div></div>`;
   h+=`<div class="card"><div class="card-h"><h3>External contractors</h3><span class="sub">${ext.length} · no internal reporting line</span></div>
-    <div class="hint amb">⚑ ${extSole.length} sole-owner activities sit with external contractors and have no internal backup — the sharpest continuity &amp; control risk. In-housing the revenue chain / ramping internal cover is the core restructuring question.</div>
     <div class="ext-rail">`;
   ext.forEach(p=>{const acts=actsOf(p.id);const sole=acts.filter(a=>a.own==="Sole owner").length;
     h+=`<div class="org-node ext"><div class="nm">${esc(p.name)}</div><div class="rl">${esc(p.role)}</div>
@@ -2064,24 +2056,21 @@ function viewAssignActs(){
   if(before)OWNER_FIELD="_home"; // compute the whole snapshot on the baseline owner
   const movedCount=DB.activities.filter(a=>!isNewAct(a)&&a.memberId!==a._home).length;
   const newCount=DB.activities.filter(isNewAct).length;
-  const kpr=keyPersonRisks().length;
   let h=`<div class="seg" style="margin-top:2px">
     <button class="${before?'active':''}" onclick="setAssignActView('before')">Current — today</button>
     <button class="${!before?'active':''}" onclick="setAssignActView('after')">Suggested — proposed${movedCount||newCount?` · ${movedCount+newCount} change${movedCount+newCount>1?'s':''}`:''}</button>
   </div>`;
   h+=before
     ? `<div class="pdrag-hint">✎ <b>Current</b> — the actuals <b>as they run today</b>. Edit freely to correct reality: drag a card to change <b>who owns it today</b> · <b>▲▼</b> reorder priority · <b>✎</b> edit · <b>✕</b> delete. Existing activities live here; <span class="bdg bdg-teal">proposed-new</span> ones appear in <b>Suggested</b> only. <button class="btn sm" style="margin-left:8px" onclick="openActivity()">+ New existing activity</button></div>`
-    : `<div class="pdrag-hint">↔ <b>Suggested</b> — the proposed re-allocation. Drag a card between columns to reassign · <b>▲▼</b> reorder priority · <b>✎</b> edit · <b>✕</b> delete. <b style="color:#cf2c35">Red left-edge</b> = key-person risk. <b style="color:#b06a00">Amber dot</b> = moved from today's owner. <span class="bdg bdg-teal">new</span> = suggested-new activity. <button class="btn sm" style="margin-left:8px" onclick="openActivity()">+ New activity</button>${(movedCount||newCount)?`<button class="btn sm ghost" style="margin-left:6px" onclick="resetActsToBefore()">Reset to Current</button>`:''}</div>`;
+    : `<div class="pdrag-hint">↔ <b>Suggested</b> — the proposed re-allocation. Drag a card between columns to reassign · <b>▲▼</b> reorder priority · <b>✎</b> edit · <b>✕</b> delete. <b style="color:#b06a00">Amber dot</b> = moved from today's owner. <span class="bdg bdg-teal">new</span> = suggested-new activity. <button class="btn sm" style="margin-left:8px" onclick="openActivity()">+ New activity</button>${(movedCount||newCount)?`<button class="btn sm ghost" style="margin-left:6px" onclick="resetActsToBefore()">Reset to Current</button>`:''}</div>`;
   h+=`<div class="stats">
     <div class="stat"><div class="n">${teamPeople().length}</div><div class="l">Columns (people)</div></div>
-    <div class="stat warn"><div class="n">${kpr}</div><div class="l">Key-person activities</div></div>
     <div class="stat amb"><div class="n">${sodConflicts().length}</div><div class="l">SoD conflicts</div></div>
     <div class="stat"><div class="n" style="color:var(--teal)">${newCount}</div><div class="l">Suggested new</div></div>
   </div>`;
   h+=`<div class="pipeline">`;
   teamPeople().forEach(p=>{
     const acts=actsOf(p.id);
-    const kp=acts.filter(isKeyPerson).length;
     const sod=sodForPerson(p.id);
     h+=`<div class="pcol ${isExternal(p)?'ext':''}">
       <div class="pcol-h">
@@ -2089,16 +2078,14 @@ function viewAssignActs(){
         <div class="rl">${esc(p.role)}</div>
         <div class="sum">
           <span class="bdg bdg-gray">${acts.length} act</span>
-          ${kp?`<span class="bdg bdg-red">${kp} key-person</span>`:''}
           ${sod.length?`<span class="bdg bdg-amber" title="${esc(sod.map(s=>s.label+' · '+s.area).join('; '))}">${sod.length} SoD</span>`:''}
         </div>
       </div>
       <div class="pcol-body" data-col="${p.id}" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="dropCard(event,'${p.id}')">`;
     acts.forEach((a,i)=>{
-      const kpx=isKeyPerson(a);
       const nw=!before&&isNewAct(a);
       const moved=!before&&!isNewAct(a)&&a.memberId!==a._home;
-      h+=`<div class="pcard ${kpx?'kpr':''} ${moved?'amoved':''} ${nw?'anew':''}" draggable="true" data-id="${a.id}" ondragstart="dragStart(event,'${a.id}')" ondragend="dragEnd(event)">
+      h+=`<div class="pcard ${moved?'amoved':''} ${nw?'anew':''}" draggable="true" data-id="${a.id}" ondragstart="dragStart(event,'${a.id}')" ondragend="dragEnd(event)">
         <div class="pt">${moved?'<span class="mdot" title="Moved from '+esc(personById(a._home)?.name||'—')+'"></span>':''}${esc(a.name)}${nw?' <span class="bdg bdg-teal">new</span>':''}</div>
         <div class="pm">
           <span class="chip area" style="margin:0">${esc(a.area)}</span>
@@ -2628,9 +2615,10 @@ function viewProcDetail(){
     </tbody></table>
   </div>`;
 
+  const changeBtn=TEAM_MODE?'':(`<button class="${PROC_VIEW==='change'?'active':''}" onclick="setProcView('change')">What needs to change${changes?' · '+changes:''}</button>`);
   h+=`<div class="seg">
     <button class="${PROC_VIEW==='current'?'active':''}" onclick="setProcView('current')">Current process</button>
-    <button class="${PROC_VIEW==='change'?'active':''}" onclick="setProcView('change')">What needs to change${changes?` · ${changes}`:''}</button>
+    ${changeBtn}
     <button class="${PROC_VIEW==='journal'?'active':''}" onclick="setProcView('journal')">Journal entries</button>
   </div>`;
 
