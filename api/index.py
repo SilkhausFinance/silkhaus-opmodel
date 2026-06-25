@@ -75,8 +75,6 @@ def health():
 
 @app.route("/api/data/load")
 def load():
-    if not _check_auth():
-        return jsonify({"error": "unauthorized"}), 401
     key = request.args.get("key")
     if not key or key not in ALLOWED_KEYS:
         return jsonify({"error": "invalid key"}), 400

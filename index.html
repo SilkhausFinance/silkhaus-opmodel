@@ -1105,6 +1105,16 @@ body::before{
   .flow-workspace{grid-template-columns:1fr}
   .flow-ledger-panel{position:relative;top:auto}
 }
+/* ── team mode: hide all editing tools ── */
+.team-mode .ed-pen,
+.team-mode .ed-add,
+.team-mode .ed-x,
+.team-mode .ed-ic,
+.team-mode .ed-tool-btn,
+.team-mode .rowedit,
+.team-mode #reviewToolbox,
+.team-mode .proc-mode-switcher{display:none!important}
+.team-mode .edcell{cursor:default;pointer-events:none}
 </style>
 </head>
 <body>
@@ -1645,7 +1655,8 @@ const BACKUP_KEY="silkhaus_opmodel_last_backup";
 const ACTIVITY_RESCUE_KEY="silkhaus_activity_rescue_done_20260618";
 const ACTIVITY_PRE_RESCUE_KEY="silkhaus_activity_pre_rescue_20260618";
 const REVIEW_KEY="silkhaus_opmodel_review_comments";
-let DB=null, TAB="org", PROC_OPEN=null, PROC_VIEW="current", ASSIGN_MODE="activities", ASSIGN_ACT_VIEW="after", CLOSE_VIEW="sections", CLOSE_OPEN=null, CLOSE_AREA="all", PROC_MODE="flow", FLOW_OPEN=null, FLOW_PHASE="all";
+const TEAM_MODE=window.location.pathname.startsWith('/team')||new URLSearchParams(location.search).get('team')==='1';
+let DB=null, TAB=TEAM_MODE?"proc":"org", PROC_OPEN=null, PROC_VIEW="current", ASSIGN_MODE="activities", ASSIGN_ACT_VIEW="after", CLOSE_VIEW="sections", CLOSE_OPEN=null, CLOSE_AREA="all", PROC_MODE="flow", FLOW_OPEN=null, FLOW_PHASE="all";
 let LAST_RANGE=null, REVIEW_COMMENTS=[];
 // inline-edit state: ED_ACTIVE = path currently being edited; PENDING_ED = path to auto-focus after the next render (set by add-mutators)
 let ED_ACTIVE=null, PENDING_ED=null;
@@ -1708,9 +1719,10 @@ async function _syncSaveToServer(data){
   }catch(e){}
 }
 async function _syncFromServer(){
-  const k=_getApiKey();if(!k)return;
+  const k=_getApiKey();if(!k&&!TEAM_MODE)return;
   try{
-    const r=await fetch('/api/data/load?key=opmodel',{headers:{'X-API-Key':k}});
+    const hdrs=k?{'X-API-Key':k}:{};
+    const r=await fetch('/api/data/load?key=opmodel',{headers:hdrs});
     if(!r.ok)return;
     const serverData=await r.json();
     if(!serverData||!serverData.people||!serverData.activities)return;
@@ -1909,12 +1921,13 @@ function sodConflicts(){
 function sodForPerson(id){return sodConflicts().filter(c=>c.pid===id);}
 
 /* ───────────────── tabs ───────────────── */
-const TABS=[
+const TABS_ALL=[
   {id:"org",  label:"Org Structure", icon:"◇"},
   {id:"act",  label:"Activity Master", icon:"☷"},
   {id:"assign",label:"Assign Work", icon:"⇄"},
   {id:"proc", label:"Business Flow", icon:"↳"}
 ];
+const TABS=TEAM_MODE?TABS_ALL.filter(t=>t.id==="proc"):TABS_ALL;
 function renderTabs(){
   const kpr=keyPersonRisks().length;
   document.getElementById("tabs").innerHTML=TABS.map(t=>{
@@ -2206,7 +2219,7 @@ function viewProc(){
   return viewFlow();
 }
 function procModeBar(){
-  return `<div class="seg">
+  return `<div class="seg proc-mode-switcher">
     <button class="${PROC_MODE==='flow'?'active':''}" onclick="setProcMode('flow')">Flow map</button>
     <button class="${PROC_MODE==='detail'?'active':''}" onclick="openDetail('rev-o2c')">Process detail</button>
   </div>`;
@@ -2529,6 +2542,7 @@ function edResolve(path){
 function edGet(path){const r=edResolve(path);return r?(r.obj[r.key]??''):'';}
 function edSet(path,val){const r=edResolve(path);if(r){r.obj[r.key]=val;save();}}
 function edStart(path,ev){
+  if(TEAM_MODE)return;
   if(ev){ev.stopPropagation();ev.preventDefault();}
   if(ED_ACTIVE===path)return;
   const el=document.getElementById('ed_'+path);if(!el)return;
@@ -2882,7 +2896,8 @@ function toggleTheme(){applyTheme(document.documentElement.dataset.theme==='dark
 /* ───────────────── boot ───────────────── */
 (function(){let t='light';try{t=localStorage.getItem('silk_theme')||'light';}catch(e){}applyTheme(t);})();
 load();autoRescueActivitiesOnce();render();loadReviewComments();
-if(!_getApiKey())document.getElementById('apikey-dialog').showModal();
+if(TEAM_MODE){document.body.classList.add('team-mode');_syncFromServer();}
+else if(!_getApiKey())document.getElementById('apikey-dialog').showModal();
 else _syncFromServer();
 </script>
 
