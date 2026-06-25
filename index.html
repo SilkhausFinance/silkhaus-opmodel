@@ -1732,6 +1732,7 @@ async function _syncFromServer(){
     if(!DB.close)DB.close=clone(CLOSE_SEED);
     if(!DB.flow)DB.flow=clone(FLOW_SEED);
     if(!DB.phases)DB.phases=clone(FLOW_PHASES);
+    _migrateCaps();
     localStorage.setItem(LS_KEY,JSON.stringify(DB));
     render();
   }catch(e){}
@@ -2897,7 +2898,7 @@ function _migrateCaps(){
 
 /* ───────────────── boot ───────────────── */
 (function(){let t='light';try{t=localStorage.getItem('silk_theme')||'light';}catch(e){}applyTheme(t);})();
-load();autoRescueActivitiesOnce();_migrateCaps();render();loadReviewComments();
+load();autoRescueActivitiesOnce();render();loadReviewComments();
 if(TEAM_MODE){document.body.classList.add('team-mode');_syncFromServer();}
 else if(!_getApiKey())document.getElementById('apikey-dialog').showModal();
 else _syncFromServer();
