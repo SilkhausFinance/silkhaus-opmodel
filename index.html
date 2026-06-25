@@ -1537,7 +1537,7 @@ const FLOW_SEED = [
  {id:'f5', num:5, phase:'demand', title:'Guest stays → revenue recognition',
   trigger:'Stay nights elapse (check-in → checkout).',
   when:'Over the stay', owner:'sai',
-  treatment:’Only the accommodation revenue is moved here — released from Advance Booking Revenue to Accommodation Revenue (420036) over the service period, via the NetSuite auto journal whose schedule was captured from the contract when the booking was posted (f4). (Cleaning was already recognised at booking, in f4.) The Silkhaus management fee is not carved out here; it only emerges at month-end settlement (f8), where the landlord\’s share is paid away and the management fee is invoiced to the landlord. Channel commission — the bill was already raised at booking (f4) to a prepaid (110044) — amortises over the stay to Channel Commission Expense; its cash was netted at source by the channel and settled in f6. (The operating costs of running the occupied unit are handled in Operations, f7.)’,
+  treatment:'Only the accommodation revenue is moved here — released from Advance Booking Revenue to Accommodation Revenue (420036) over the service period, via the NetSuite auto journal whose schedule was captured from the contract when the booking was posted (f4). (Cleaning was already recognised at booking, in f4.) The Silkhaus management fee is not carved out here; it only emerges at month-end settlement (f8), where the landlord\’s share is paid away and the management fee is invoiced to the landlord. Channel commission — the bill was already raised at booking (f4) to a prepaid (110044) — amortises over the stay to Channel Commission Expense; its cash was netted at source by the channel and settled in f6. (The operating costs of running the occupied unit are handled in Operations, f7.)',
   accounts:['120005 Advance Booking Revenue','420036 Airbnb Accommodation Fare','110044 Channel Commission (prepaid)','520002 Airbnb Channel Commission','520003 BDC Channel Commission'],
   entries:[
     {event:'Recognise accommodation revenue (auto JE)', dr:'Advance Booking Revenue (120005)', cr:'Accommodation Revenue (420036)', note:'ONLY accommodation moves here — over the service period; schedule set at booking (f4)'},
@@ -2377,6 +2377,7 @@ function flowStageHTML(s,num){
 }
 function viewFlow(){
   const nums=flowNumbers(), ordered=flowOrdered();
+  if(!ordered.length)return`<div class="card" style="margin:24px"><p class="muted">No flow stages yet.</p></div>`;
   const filtered=FLOW_PHASE==='all'?ordered:ordered.filter(s=>s.phase===FLOW_PHASE);
   const selected=(filtered.find(s=>s.id===FLOW_OPEN)||filtered[0]||ordered[0]);
   const entryCount=ordered.reduce((n,s)=>n+(s.entries||[]).length,0);
@@ -2898,8 +2899,9 @@ function _migrateCaps(){
 
 /* ───────────────── boot ───────────────── */
 (function(){let t='light';try{t=localStorage.getItem('silk_theme')||'light';}catch(e){}applyTheme(t);})();
+if(TEAM_MODE)document.body.classList.add('team-mode');
 load();autoRescueActivitiesOnce();render();loadReviewComments();
-if(TEAM_MODE){document.body.classList.add('team-mode');_syncFromServer();}
+if(TEAM_MODE)_syncFromServer();
 else if(!_getApiKey())document.getElementById('apikey-dialog').showModal();
 else _syncFromServer();
 </script>
