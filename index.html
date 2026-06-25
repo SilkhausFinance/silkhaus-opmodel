@@ -2884,9 +2884,20 @@ function applyTheme(t){
 }
 function toggleTheme(){applyTheme(document.documentElement.dataset.theme==='dark'?'light':'dark');}
 
+/* ───────────────── caps migration (one-time) ───────────────── */
+function _migrateCaps(){
+  // Abbreviations that should stay uppercase
+  const KEEP=new Set(['DEWA','ENBD','DTCM','VAT','OTA','DR','CR','GL','PMS','ERP','BDC','NBF','USD','FX','AR','AP','MIS','ADR','SoD','BRS','EBITDA','P&L','A/P','R&M']);
+  const fix=s=>s.replace(/\b[A-Z]{2,}(?:-[A-Z]+)*\b/g,w=>KEEP.has(w)?w:w.toLowerCase());
+  let changed=false;
+  (DB.flow||[]).forEach(s=>{if(s.treatment){const f=fix(s.treatment);if(f!==s.treatment){s.treatment=f;changed=true;}}});
+  (DB.activities||[]).forEach(a=>{if(a.notes){const f=fix(a.notes);if(f!==a.notes){a.notes=f;changed=true;}}});
+  if(changed)save();
+}
+
 /* ───────────────── boot ───────────────── */
 (function(){let t='light';try{t=localStorage.getItem('silk_theme')||'light';}catch(e){}applyTheme(t);})();
-load();autoRescueActivitiesOnce();render();loadReviewComments();
+load();autoRescueActivitiesOnce();_migrateCaps();render();loadReviewComments();
 if(TEAM_MODE){document.body.classList.add('team-mode');_syncFromServer();}
 else if(!_getApiKey())document.getElementById('apikey-dialog').showModal();
 else _syncFromServer();
