@@ -1724,7 +1724,6 @@ async function _syncFromServer(){
     if(!r.ok)return;
     const serverData=await r.json();
     if(!serverData||!serverData.people||!serverData.activities)return;
-    if(JSON.stringify(serverData)===JSON.stringify(DB))return;
     DB=serverData;
     DB.people.forEach(p=>{if(p.pmanager===undefined)p.pmanager=p.manager||null;});
     DB.activities.forEach(a=>{if(a._home===undefined)a._home=a.memberId;});
@@ -2901,7 +2900,7 @@ function _migrateCaps(){
 /* ───────────────── boot ───────────────── */
 (function(){let t='light';try{t=localStorage.getItem('silk_theme')||'light';}catch(e){}applyTheme(t);})();
 if(TEAM_MODE)document.body.classList.add('team-mode');
-load();autoRescueActivitiesOnce();render();loadReviewComments();
+load();autoRescueActivitiesOnce();_migrateCaps();render();loadReviewComments();
 if(TEAM_MODE)_syncFromServer();
 else if(!_getApiKey())document.getElementById('apikey-dialog').showModal();
 else _syncFromServer();
