@@ -1,11 +1,20 @@
 {
   "builds": [
-    { "src": "api/index.py", "use": "@vercel/python" },
-    { "src": "index.html",   "use": "@vercel/static"  }
+    { "src": "api/bills.py",  "use": "@vercel/python" },
+    { "src": "api/index.py",  "use": "@vercel/python" },
+    { "src": "bills.html",    "use": "@vercel/static" },
+    { "src": "admin.html",    "use": "@vercel/static" },
+    { "src": "index.html",    "use": "@vercel/static" }
   ],
   "routes": [
-    { "src": "/api/(.*)", "dest": "api/index.py" },
-    { "src": "/team",     "dest": "/index.html"  },
-    { "src": "/(.*)",     "dest": "/index.html"  }
+    { "src": "/api/bills(.*)",  "dest": "api/bills.py" },
+    { "src": "/api/gmail(.*)",  "dest": "api/bills.py" },
+    { "src": "/api/admin(.*)",  "dest": "api/bills.py" },
+    { "src": "/api/config",     "dest": "api/bills.py" },
+    { "src": "/api/(.*)",       "dest": "api/index.py" },
+    { "src": "/bills",          "dest": "/bills.html"  },
+    { "src": "/admin",          "dest": "/admin.html"  },
+    { "src": "/team",           "dest": "/index.html"  },
+    { "src": "/(.*)",           "dest": "/index.html"  }
   ]
 }
