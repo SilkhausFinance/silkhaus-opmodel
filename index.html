@@ -689,103 +689,6 @@ body::before{
   box-shadow:0 12px 30px rgba(37,99,235,.13);
 }
 
-/* ───────────────── review tools: standalone pane ───────────────── */
-.review-toolbox{
-  position:fixed;
-  right:18px;
-  bottom:18px;
-  width:280px;
-  z-index:80;
-  background:#ffffff;
-  border:1px solid var(--line);
-  border-radius:8px;
-  box-shadow:0 18px 48px rgba(24,40,72,.16);
-  overflow:hidden;
-}
-.review-toolbox.min .review-tool-body{display:none}
-.review-tool-head{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-  padding:11px 12px;
-  border-bottom:1px solid var(--line);
-  background:#f7f9fc;
-}
-.review-tool-head b{font-size:12px;color:var(--ink-strong)}
-.review-tool-head button{
-  border:1px solid var(--line);
-  background:#fff;
-  color:var(--ink2);
-  border-radius:6px;
-  height:24px;
-  width:28px;
-  font-weight:900;
-}
-.review-tool-body{padding:12px}
-.review-tool-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
-.review-tool-row button{
-  border:1px solid var(--line);
-  background:#fff;
-  color:var(--ink);
-  border-radius:7px;
-  height:30px;
-  padding:0 9px;
-  font-size:11px;
-  font-weight:900;
-}
-.review-tool-row button:hover{border-color:var(--accent);color:var(--accent);background:#f7f9fc}
-.review-tool-row input[type="color"]{
-  width:34px;
-  height:30px;
-  border:1px solid var(--line);
-  border-radius:7px;
-  padding:2px;
-  background:#fff;
-}
-.review-tool-note{
-  margin-top:9px;
-  font-size:11px;
-  line-height:1.35;
-  color:var(--ink2);
-}
-.review-comments{
-  margin-top:10px;
-  max-height:170px;
-  overflow:auto;
-  display:flex;
-  flex-direction:column;
-  gap:7px;
-}
-.review-comment{
-  border:1px solid var(--line);
-  border-left:3px solid var(--cyan);
-  border-radius:7px;
-  padding:8px;
-  background:#fff;
-}
-.review-comment q{
-  display:block;
-  font-size:11px;
-  color:var(--ink);
-  margin-bottom:4px;
-}
-.review-comment p{
-  margin:0;
-  font-size:11px;
-  color:var(--ink2);
-}
-.review-mark{
-  border-radius:3px;
-  padding:0 2px;
-}
-.review-commented{
-  border-bottom:2px dotted var(--cyan);
-  cursor:help;
-}
-@media(max-width:760px){
-  .review-toolbox{right:10px;left:10px;bottom:10px;width:auto}
-}
 
 /* ───────────────── v18 visual cleanup: contrast + standard controls ───────────────── */
 .navtabs .tab{
@@ -931,30 +834,6 @@ body::before{
   color:#15803d;
 }
 
-.review-toolbox{
-  border-color:#dfe4ed;
-}
-.review-tool-head{
-  background:#10263d;
-  border-bottom-color:#10263d;
-}
-.review-tool-head b{
-  color:#ffffff;
-}
-.review-tool-head button{
-  background:rgba(255,255,255,.10);
-  color:#ffffff;
-  border-color:rgba(255,255,255,.18);
-}
-.review-tool-row button{
-  color:#25364c;
-  border-color:#dfe4ed;
-}
-.review-tool-row button:hover{
-  background:#f7f9fc;
-  border-color:#2563eb;
-  color:#1d4ed8;
-}
 
 /* ───────────────── Business Flow: one selector + split workspace ───────────────── */
 .flow-workspace{
@@ -1112,7 +991,6 @@ body::before{
 .team-mode .ed-ic,
 .team-mode .ed-tool-btn,
 .team-mode .rowedit,
-.team-mode #reviewToolbox,
 .team-mode .proc-mode-switcher{display:none!important}
 .team-mode .edcell{cursor:default;pointer-events:none}
 </style>
@@ -1137,23 +1015,6 @@ body::before{
 </div>
 
 <div class="modal" id="modal"><div class="modal-box" id="modalInner"></div></div>
-<div class="review-toolbox" id="reviewToolbox">
-  <div class="review-tool-head">
-    <b>Review tools</b>
-    <button type="button" onclick="toggleReviewBox()" title="Collapse / expand">–</button>
-  </div>
-  <div class="review-tool-body">
-    <div class="review-tool-row">
-      <input type="color" id="reviewColor" value="#f6c453" title="Highlight colour">
-      <button type="button" onclick="reviewApply('highlight')">Highlight</button>
-      <button type="button" onclick="reviewApply('underline')">Underline</button>
-      <button type="button" onclick="reviewApply('strike')">Strike</button>
-      <button type="button" onclick="reviewComment()">Comment</button>
-    </div>
-    <div class="review-tool-note">Select text anywhere on the page, then apply a mark. Comments are saved locally in this browser.</div>
-    <div class="review-comments" id="reviewComments"></div>
-  </div>
-</div>
 
 <script>
 /* ───────────────── constants ───────────────── */
@@ -1802,88 +1663,6 @@ function restoreLocalBackup(){
   }
 }
 
-/* ───────────────── review tools ───────────────── */
-function loadReviewComments(){
-  try{REVIEW_COMMENTS=JSON.parse(localStorage.getItem(REVIEW_KEY)||"[]");}
-  catch(e){REVIEW_COMMENTS=[];}
-  renderReviewComments();
-}
-function saveReviewComments(){
-  try{localStorage.setItem(REVIEW_KEY,JSON.stringify(REVIEW_COMMENTS));}
-  catch(e){}
-}
-function renderReviewComments(){
-  const el=document.getElementById("reviewComments");if(!el)return;
-  el.innerHTML=REVIEW_COMMENTS.length?REVIEW_COMMENTS.slice().reverse().map(c=>`
-    <div class="review-comment" title="${esc(c.when||'')}" style="border-left-color:${esc(c.color||'#0d9488')}">
-      <q>${c.type?`<span class="bdg bdg-gray" style="margin-right:5px">${esc(c.type)}</span>`:''}${esc(c.quote||'')}</q>
-      <p>${esc(c.note||'')}</p>
-    </div>`).join(""):`<div class="review-tool-note" style="margin-top:0">No comments yet.</div>`;
-}
-function toggleReviewBox(){document.getElementById("reviewToolbox").classList.toggle("min");}
-function getReviewRange(){
-  const sel=window.getSelection&&window.getSelection();
-  if(sel&&sel.rangeCount&&!sel.isCollapsed){
-    LAST_RANGE=sel.getRangeAt(0).cloneRange();
-    return sel.getRangeAt(0);
-  }
-  if(LAST_RANGE){
-    sel&&sel.removeAllRanges&&sel.removeAllRanges();
-    sel&&sel.addRange&&sel.addRange(LAST_RANGE);
-    return LAST_RANGE;
-  }
-  return null;
-}
-function wrapReviewSelection(cls,style,title){
-  const range=getReviewRange();
-  if(!range){alert("Select text first, then use the review tool.");return null;}
-  const span=document.createElement("span");
-  span.className=cls;
-  if(style)span.setAttribute("style",style);
-  if(title)span.setAttribute("title",title);
-  try{
-    range.surroundContents(span);
-  }catch(e){
-    const text=range.toString();
-    span.textContent=text;
-    range.deleteContents();
-    range.insertNode(span);
-  }
-  const sel=window.getSelection&&window.getSelection();
-  if(sel)sel.removeAllRanges();
-  LAST_RANGE=null;
-  return span.textContent||"";
-}
-function reviewApply(type){
-  const range=getReviewRange();
-  if(!range){alert("Select text first, then use the review tool.");return;}
-  const quote=range.toString().trim();
-  const color=document.getElementById("reviewColor")?.value||"#f6c453";
-  if(type==="highlight")wrapReviewSelection("review-mark",`background:${color};`);
-  if(type==="underline")wrapReviewSelection("review-mark","text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:3px;");
-  if(type==="strike")wrapReviewSelection("review-mark","text-decoration:line-through;text-decoration-thickness:2px;");
-  if(quote){
-    REVIEW_COMMENTS.push({quote,type,color,note:"",when:new Date().toISOString()});
-    saveReviewComments();
-    renderReviewComments();
-  }
-}
-function reviewComment(){
-  const range=getReviewRange();
-  if(!range){alert("Select text first, then add a comment.");return;}
-  const quote=range.toString().trim();
-  if(!quote){alert("Select text first, then add a comment.");return;}
-  const note=prompt("Comment for selected text:");
-  if(!note)return;
-  wrapReviewSelection("review-mark review-commented","",note);
-  REVIEW_COMMENTS.push({quote,note,type:"comment",color:"#0d9488",when:new Date().toISOString()});
-  saveReviewComments();
-  renderReviewComments();
-}
-if(document.addEventListener)document.addEventListener("selectionchange",()=>{
-  const sel=window.getSelection&&window.getSelection();
-  if(sel&&sel.rangeCount&&!sel.isCollapsed)LAST_RANGE=sel.getRangeAt(0).cloneRange();
-});
 
 /* ───────────────── helpers ───────────────── */
 function personById(id){return DB.people.find(p=>p.id===id)}
@@ -3132,7 +2911,7 @@ async function _bSignIn(){await _sbB.auth.signInWithOAuth({provider:'google',opt
 /* ───────────────── boot ───────────────── */
 (function(){let t='light';try{t=localStorage.getItem('silk_theme')||'light';}catch(e){}applyTheme(t);})();
 if(TEAM_MODE)document.body.classList.add('team-mode');
-load();autoRescueActivitiesOnce();_migrateCaps();render();loadReviewComments();
+load();autoRescueActivitiesOnce();_migrateCaps();render();
 if(TEAM_MODE)_syncFromServer();
 else if(!_getApiKey())document.getElementById('apikey-dialog').showModal();
 else _syncFromServer();

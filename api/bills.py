@@ -284,8 +284,8 @@ def gmail_sync():
     if not access_token:
         return jsonify({"error": "gmail_not_connected"}), 400
 
-    days = int(request.get_json(silent=True) or {}).get("days", 30)
-    after_epoch = int((datetime.now(timezone.utc).timestamp()) - days * 86400)
+    SYNC_START = datetime(2026, 6, 1, tzinfo=timezone.utc)
+    after_epoch = int(SYNC_START.timestamp())
     query = f"has:attachment after:{after_epoch} -in:sent"
 
     try:
