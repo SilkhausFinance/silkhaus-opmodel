@@ -6,6 +6,7 @@
 <title>Finance@silkhaus</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <style>
 :root{
   /* ── studio palette · light ── */
@@ -1125,6 +1126,16 @@ body::before{
 <div class="navtabs" id="tabs"></div>
 <div class="wrap" id="view"></div>
 
+<!-- Bills side drawer -->
+<div id="bDrawerOverlay" onclick="_billsCloseDrawer()" style="position:fixed;inset:0;background:rgba(21,25,58,.35);z-index:200;opacity:0;pointer-events:none;transition:opacity .2s"></div>
+<div id="bDrawer" style="position:fixed;top:0;right:0;bottom:0;width:460px;max-width:95vw;background:var(--panel);border-left:1px solid var(--line2);box-shadow:-8px 0 40px rgba(20,23,58,.12);z-index:201;transform:translateX(100%);transition:transform .25s cubic-bezier(.4,0,.2,1);overflow-y:auto;display:flex;flex-direction:column">
+  <div style="padding:20px 22px 16px;border-bottom:1px solid var(--line2);display:flex;align-items:center;gap:12px;position:sticky;top:0;background:var(--panel);z-index:1">
+    <h2 id="bDrawerTitle" style="font-size:15px;font-weight:700;flex:1">Bill Detail</h2>
+    <button onclick="_billsCloseDrawer()" style="width:30px;height:30px;border-radius:8px;background:var(--panel-2);border:1px solid var(--line);color:var(--ink2);font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;line-height:1">×</button>
+  </div>
+  <div id="bDrawerBody" style="padding:20px 22px;flex:1"></div>
+</div>
+
 <div class="modal" id="modal"><div class="modal-box" id="modalInner"></div></div>
 <div class="review-toolbox" id="reviewToolbox">
   <div class="review-tool-head">
@@ -1654,7 +1665,8 @@ const ACTIVITY_RESCUE_KEY="silkhaus_activity_rescue_done_20260618";
 const ACTIVITY_PRE_RESCUE_KEY="silkhaus_activity_pre_rescue_20260618";
 const REVIEW_KEY="silkhaus_opmodel_review_comments";
 const TEAM_MODE=window.location.pathname.startsWith('/team')||new URLSearchParams(location.search).get('team')==='1';
-let DB=null, TAB=TEAM_MODE?"proc":"org", PROC_OPEN=null, PROC_VIEW="current", ASSIGN_MODE="activities", ASSIGN_ACT_VIEW="after", CLOSE_VIEW="sections", CLOSE_OPEN=null, CLOSE_AREA="all", PROC_MODE="flow", FLOW_OPEN=null, FLOW_PHASE="all";
+const _urlTab=new URLSearchParams(location.search).get('tab');
+let DB=null, TAB=(_urlTab&&['org','act','assign','proc','bills'].includes(_urlTab))?_urlTab:(TEAM_MODE?"proc":"org"), PROC_OPEN=null, PROC_VIEW="current", ASSIGN_MODE="activities", ASSIGN_ACT_VIEW="after", CLOSE_VIEW="sections", CLOSE_OPEN=null, CLOSE_AREA="all", PROC_MODE="flow", FLOW_OPEN=null, FLOW_PHASE="all";
 let LAST_RANGE=null, REVIEW_COMMENTS=[];
 // inline-edit state: ED_ACTIVE = path currently being edited; PENDING_ED = path to auto-focus after the next render (set by add-mutators)
 let ED_ACTIVE=null, PENDING_ED=null;
@@ -1923,9 +1935,10 @@ const TABS_ALL=[
   {id:"org",  label:"Org Structure", icon:"◇"},
   {id:"act",  label:"Activity Master", icon:"☷"},
   {id:"assign",label:"Assign Work", icon:"⇄"},
-  {id:"proc", label:"Processes", icon:"↳"}
+  {id:"proc", label:"Processes", icon:"↳"},
+  {id:"bills",label:"Bills", icon:"📋"}
 ];
-const TABS=TEAM_MODE?TABS_ALL.filter(t=>t.id==="proc"):TABS_ALL;
+const TABS=TEAM_MODE?TABS_ALL.filter(t=>t.id==="proc"||t.id==="bills"):TABS_ALL;
 function renderTabs(){
   document.getElementById("tabs").innerHTML=TABS.map(t=>{
     return `<button class="tab ${TAB===t.id?'active':''}" onclick="setTab('${t.id}')"><span class="tab-ico">${t.icon}</span><span>${t.label}</span></button>`;
@@ -1940,6 +1953,7 @@ function render(){
   else if(TAB==="assign"){v.innerHTML=viewAssign();wireDnD();}
   else if(TAB==="proc")v.innerHTML=viewProc();
   else if(TAB==="close")v.innerHTML=viewClose();
+  else if(TAB==="bills"){v.innerHTML=viewBills();}
   // after a structural add, drop the caret straight into the freshly-created field
   if(PENDING_ED){const p=PENDING_ED;PENDING_ED=null;setTimeout(()=>edStart(p),30);}
 }
@@ -2896,6 +2910,224 @@ function _migrateCaps(){
   (DB.processes||[]).forEach(p=>{if(fixObj(p))changed=true;(p.steps||[]).forEach((st,i)=>{if(typeof st==='string'){const f=fix(st);if(f!==st){p.steps[i]=f;changed=true;}}});});
   if(changed)save();
 }
+
+/* ───────────────── bills tab ───────────────── */
+let _sbB=null,_billsSess=null,_billsCfg={loaded:false},_bills=[],_billsRole='viewer',_billsLastEx=null;
+
+function viewBills(){
+  setTimeout(_billsBoot,0);
+  return '<div id="bills-view" style="padding:32px;color:var(--ink2);display:flex;align-items:center;gap:10px"><div style="width:18px;height:18px;border:2.5px solid rgba(106,92,255,.2);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0"></div> Loading bills…</div>';
+}
+
+async function _billsBoot(){
+  if(!_billsCfg.loaded){
+    try{_billsCfg=await fetch('/api/config').then(r=>r.json());_billsCfg.loaded=true;}
+    catch(e){_bSetView(_bSetupHtml());return;}
+  }
+  if(!_billsCfg.configured){_bSetView(_bSetupHtml());return;}
+  if(!_sbB)_sbB=supabase.createClient(_billsCfg.supabase_url,_billsCfg.supabase_anon_key);
+  const {data:{session}}=await _sbB.auth.getSession();
+  _billsSess=session;
+  if(!_billsSess){_bSetView(_bLoginHtml());return;}
+  const prof=await _sbB.from('profiles').select('role').eq('id',_billsSess.user.id).single();
+  _billsRole=(prof.data||{}).role||'viewer';
+  await _billsLoad();
+}
+
+function _bSetView(html){const el=document.getElementById('bills-view');if(el)el.innerHTML=html;}
+
+async function _billsLoad(){
+  const params=new URLSearchParams();
+  const s=document.getElementById('bfS')?.value,c=document.getElementById('bfC')?.value,f=document.getElementById('bfF')?.value,t=document.getElementById('bfT')?.value;
+  if(s)params.set('status',s);if(c)params.set('category',c);if(f)params.set('from',f);if(t)params.set('to',t);
+  try{
+    const r=await fetch('/api/bills?'+params,{headers:{Authorization:'Bearer '+_billsSess.access_token}});
+    _bills=(await r.json()).bills||[];
+    _bRender();
+  }catch(e){_bSetView('<div class="card" style="padding:32px;color:var(--red)">Failed to load bills.</div>');}
+}
+
+function _bRender(){
+  const total=_bills.length,pend=_bills.filter(b=>b.status==='pending_review').length,appr=_bills.filter(b=>b.status==='approved').length;
+  const now=new Date(),mb=_bills.filter(b=>{if(!b.bill_date)return false;const d=new Date(b.bill_date+'T00:00:00');return d.getFullYear()===now.getFullYear()&&d.getMonth()===now.getMonth();});
+  const mAmt=mb.reduce((s,b)=>s+(parseFloat(b.amount)||0),0);
+  const canSync=_billsCfg.gmail_connected&&['admin','preparer'].includes(_billsRole);
+  const canUpload=['admin','preparer'].includes(_billsRole);
+  _bSetView(`
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px">
+    <div>
+      <h2 style="font-size:18px;font-weight:700;margin-bottom:4px">Bill Automation</h2>
+      <p class="muted" style="font-size:13px">Utilities · Maintenance · Repairs · Cleaning — AI-extracted, ready for NetSuite</p>
+    </div>
+    <div class="row-actions">
+      ${canSync?`<button class="btn sm" id="bSyncBtn" onclick="_billsSync()">🔄 Sync Gmail</button>`:`<button class="btn sm ghost" disabled style="opacity:.5;cursor:not-allowed" title="${_billsCfg.gmail_connected?'Insufficient role':'Gmail not connected'}">🔄 Sync Gmail</button>`}
+      ${canUpload?`<button class="btn sm ghost" onclick="document.getElementById('bFileIn').click()">📤 Upload</button>`:''}
+      <button class="btn sm ghost" onclick="_bExport()">⬇ CSV</button>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
+    <div class="card" style="padding:16px 18px;margin-bottom:0"><div style="font-size:10.5px;font-weight:700;color:var(--ink2);letter-spacing:.04em;text-transform:uppercase;margin-bottom:6px">Total</div><div style="font-size:24px;font-weight:800;color:var(--ink-strong)">${total}</div></div>
+    <div class="card" style="padding:16px 18px;margin-bottom:0"><div style="font-size:10.5px;font-weight:700;color:var(--ink2);letter-spacing:.04em;text-transform:uppercase;margin-bottom:6px">Pending</div><div style="font-size:24px;font-weight:800;color:var(--amber)">${pend}</div></div>
+    <div class="card" style="padding:16px 18px;margin-bottom:0"><div style="font-size:10.5px;font-weight:700;color:var(--ink2);letter-spacing:.04em;text-transform:uppercase;margin-bottom:6px">Approved</div><div style="font-size:24px;font-weight:800;color:var(--green)">${appr}</div></div>
+    <div class="card" style="padding:16px 18px;margin-bottom:0;background:var(--grad);border-color:transparent"><div style="font-size:10.5px;font-weight:700;color:rgba(255,255,255,.85);letter-spacing:.04em;text-transform:uppercase;margin-bottom:6px">This Month</div><div style="font-size:18px;font-weight:800;color:#fff">AED ${mAmt.toLocaleString('en-AE',{maximumFractionDigits:0})}</div><div style="font-size:11.5px;color:rgba(255,255,255,.8)">${mb.length} bill${mb.length!==1?'s':''}</div></div>
+  </div>
+  <div class="card" style="padding:12px 16px;margin-bottom:12px">
+    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+      ${['Status:bfS:status:pending_review|Pending,approved|Approved,rejected|Rejected,exported|Exported','Category:bfC:category:Utilities - Electricity|Utilities - Electricity,Utilities - Water|Utilities - Water,Utilities - Gas|Utilities - Gas,Maintenance|Maintenance,Repairs|Repairs,Cleaning|Cleaning'].map(spec=>{
+        const[lbl,id,_,opts]=spec.split(':');
+        return`<div style="display:flex;align-items:center;gap:6px"><span style="font-size:12px;font-weight:600;color:var(--ink2)">${lbl}</span><select id="${id}" onchange="_billsLoad()" style="background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:5px 8px;font-size:12px;color:var(--ink);font-family:inherit"><option value="">All</option>${opts.split(',').map(o=>{const[v,l]=o.split('|');return`<option value="${v}">${l}</option>`;}).join('')}</select></div>`;
+      }).join('')}
+      <div style="display:flex;align-items:center;gap:6px"><span style="font-size:12px;font-weight:600;color:var(--ink2)">From</span><input type="date" id="bfF" onchange="_billsLoad()" style="background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:5px 8px;font-size:12px;color:var(--ink);font-family:inherit"></div>
+      <div style="display:flex;align-items:center;gap:6px"><span style="font-size:12px;font-weight:600;color:var(--ink2)">To</span><input type="date" id="bfT" onchange="_billsLoad()" style="background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:5px 8px;font-size:12px;color:var(--ink);font-family:inherit"></div>
+    </div>
+  </div>
+  ${_bills.length===0?`<div class="card" style="padding:48px;text-align:center"><div style="font-size:38px;margin-bottom:12px;opacity:.5">📋</div><h3 style="margin-bottom:8px">No bills yet</h3><p class="muted">${canSync?'Sync Gmail to pull invoices, or upload a bill manually.':'Bills will appear here once they are added by your team.'}</p></div>`:
+  `<div class="card" style="overflow:hidden;padding:0">
+    <table style="width:100%;border-collapse:collapse">
+      <thead><tr style="background:var(--panel-2);border-bottom:1px solid var(--line)">
+        ${['Vendor','Bill No.','Date','Amount','Category','Property','Status'].map(h=>`<th style="padding:10px 14px;font-size:11px;font-weight:700;color:var(--ink2);letter-spacing:.04em;text-transform:uppercase;text-align:left;white-space:nowrap">${h}</th>`).join('')}
+      </tr></thead>
+      <tbody>${_bills.map(b=>`<tr onclick="_bOpenDr('${b.id}')" style="border-bottom:1px solid var(--line2);cursor:pointer;transition:background .1s" onmouseover="this.style.background='var(--hover)'" onmouseout="this.style.background=''">
+        <td style="padding:12px 14px;font-weight:600;color:var(--ink-strong);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_bE(b.vendor_name||'—')}</td>
+        <td style="padding:12px 14px;color:var(--ink2);font-size:12.5px">${_bE(b.bill_number||'—')}</td>
+        <td style="padding:12px 14px;color:var(--ink2);font-size:12.5px;white-space:nowrap">${_bD(b.bill_date)}</td>
+        <td style="padding:12px 14px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap">${b.currency||'AED'} ${_bA(b.amount)}</td>
+        <td style="padding:12px 14px">${_bChip(b.category)}</td>
+        <td style="padding:12px 14px;color:var(--ink2);font-size:12.5px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_bE(b.property_name||'—')}</td>
+        <td style="padding:12px 14px">${_bBadge(b.status)}</td>
+      </tr>`).join('')}</tbody>
+    </table>
+  </div>`}
+  <input type="file" id="bFileIn" accept=".pdf,image/*" style="display:none" onchange="_bHandleFile(this)">`);
+}
+
+async function _billsSync(){
+  const btn=document.getElementById('bSyncBtn');
+  if(btn){btn.disabled=true;btn.textContent='Syncing…';}
+  try{
+    const r=await fetch('/api/gmail/sync',{method:'POST',headers:{Authorization:'Bearer '+_billsSess.access_token,'Content-Type':'application/json'},body:JSON.stringify({days:30})});
+    const d=await r.json();
+    alert(`Sync done: ${d.found} new bill${d.found!==1?'s':''} found${d.skipped?`, ${d.skipped} skipped`:''}.`);
+    _billsCfg.gmail_last_sync=new Date().toISOString();
+    await _billsLoad();
+  }catch(e){alert('Sync failed: '+e.message);}
+  finally{if(btn){btn.disabled=false;btn.innerHTML='🔄 Sync Gmail';}}
+}
+
+function _bHandleFile(input){const f=input.files[0];if(!f)return;input.value='';_bExtract(f);}
+
+async function _bExtract(file){
+  const fd=new FormData();fd.append('file',file);
+  try{
+    const r=await fetch('/api/bills/extract',{method:'POST',headers:{Authorization:'Bearer '+_billsSess.access_token},body:fd});
+    const d=await r.json();
+    if(d.error==='out_of_scope'){alert('Not a utility/maintenance/cleaning bill (detected: '+(d.detected_category||'other')+').');return;}
+    if(d.error){alert('Extraction failed: '+d.error);return;}
+    _billsLastEx={extracted:d.extracted,je:d.suggested_je};
+    _bShowExtModal(d.extracted,d.suggested_je);
+  }catch(e){alert('Extraction failed: '+e.message);}
+}
+
+function _bShowExtModal(ex,je){
+  const lines=(je?.lines||[]).map(l=>`<div style="display:flex;gap:8px;padding:6px 0;border-bottom:1px solid var(--line);font-size:12.5px"><span style="font-size:11px;font-weight:800;width:22px;color:${l.type==='DR'?'var(--accent)':'var(--cyan2)'}">${l.type}</span><span style="flex:1">${_bE(l.account)}</span><span style="font-weight:700">${_bA(l.amount)}</span></div>`).join('');
+  document.getElementById('modalInner').innerHTML=`
+    <div style="font-weight:700;font-size:16px;margin-bottom:16px">Review extracted bill</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+      ${[['Vendor','ux-v',ex.vendor_name||'','text'],['Bill No.','ux-b',ex.bill_number||'','text'],['Date','ux-d',ex.bill_date||'','date'],['Amount (net)','ux-a',ex.amount||'','number']].map(([l,id,v,t])=>`<label style="display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:var(--ink2)">${l}<input id="${id}" type="${t}" value="${_bE(String(v))}" style="border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:13px;font-family:inherit;background:var(--field);color:var(--ink)"></label>`).join('')}
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:var(--ink2)">Category<select id="ux-c" style="border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:13px;font-family:inherit;background:var(--field);color:var(--ink)">${['Utilities - Electricity','Utilities - Water','Utilities - Gas','Maintenance','Repairs','Cleaning'].map(c=>`<option${ex.category===c?' selected':''}>${c}</option>`).join('')}</select></label>
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:var(--ink2)">Property / Unit<input id="ux-p" value="${_bE(ex.property_name||'')}" placeholder="e.g. Marina Heights 3201" style="border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:13px;font-family:inherit;background:var(--field);color:var(--ink)"></label>
+    </div>
+    <div style="font-size:11px;font-weight:700;color:var(--ink2);letter-spacing:.04em;text-transform:uppercase;margin-bottom:6px">Suggested Journal Entry</div>
+    <div style="background:var(--panel-2);border:1px solid var(--line2);border-radius:10px;padding:12px;margin-bottom:14px">${lines}</div>
+    ${ex.confidence_notes?`<div style="background:var(--amber-lt);border:1px solid #fde68a;border-radius:8px;padding:10px 12px;font-size:12.5px;color:#92400e;margin-bottom:14px">⚠️ ${_bE(ex.confidence_notes)}</div>`:''}
+    <div style="display:flex;justify-content:flex-end;gap:10px">
+      <button onclick="closeModal()" class="btn sm ghost">Cancel</button>
+      <button onclick="_bSaveEx()" class="btn sm">Save to Queue</button>
+    </div>`;
+  document.getElementById('modal').style.display='flex';
+}
+
+async function _bSaveEx(){
+  const ex=(_billsLastEx||{}).extracted||{};
+  const je=(_billsLastEx||{}).je||{};
+  const body={
+    vendor_name:document.getElementById('ux-v')?.value,bill_number:document.getElementById('ux-b')?.value,
+    bill_date:document.getElementById('ux-d')?.value,amount:parseFloat(document.getElementById('ux-a')?.value)||null,
+    tax_amount:ex.tax_amount||null,currency:ex.currency||'AED',category:document.getElementById('ux-c')?.value,
+    property_name:document.getElementById('ux-p')?.value,suggested_debit_account:ex.suggested_debit_account,
+    netsuite_memo:ex.netsuite_memo,suggested_je:je,extracted_data:ex,
+  };
+  try{
+    const r=await fetch('/api/bills',{method:'POST',headers:{Authorization:'Bearer '+_billsSess.access_token,'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const d=await r.json();
+    closeModal();
+    if(d.bill)_bills.unshift(d.bill);
+    _bRender();
+  }catch(e){alert('Save failed: '+e.message);}
+}
+
+function _bOpenDr(id){
+  const b=_bills.find(x=>x.id===id);if(!b)return;
+  const je=typeof b.suggested_je==='string'?JSON.parse(b.suggested_je||'{}'):b.suggested_je||{};
+  const lines=(je.lines||[]).map(l=>`<div style="display:flex;gap:8px;padding:6px 0;border-bottom:1px solid var(--line);font-size:12.5px"><span style="font-size:11px;font-weight:800;width:22px;color:${l.type==='DR'?'var(--accent)':'var(--cyan2)'}">${l.type}</span><span style="flex:1">${_bE(l.account)}</span><span style="font-weight:700">${_bA(l.amount)}</span></div>`).join('');
+  const canAct=['admin','approver'].includes(_billsRole)&&b.status==='pending_review';
+  document.getElementById('bDrawerTitle').textContent=b.vendor_name||'Bill Detail';
+  document.getElementById('bDrawerBody').innerHTML=`
+    <div style="margin-bottom:12px">${_bBadge(b.status)} ${b.source==='gmail_sync'?'<span style="background:var(--panel-3);color:var(--ink2);font-size:11.5px;font-weight:600;padding:3px 9px;border-radius:20px;margin-left:6px">📧 Gmail</span>':'<span style="background:var(--panel-3);color:var(--ink2);font-size:11.5px;font-weight:600;padding:3px 9px;border-radius:20px;margin-left:6px">📤 Manual</span>'}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;font-size:13px">
+      ${[['Bill No.',_bE(b.bill_number||'—')],['Date',_bD(b.bill_date)],['Amount',`<strong style="font-size:15px">${b.currency||'AED'} ${_bA(b.amount)}</strong>`],['VAT',b.tax_amount?_bA(b.tax_amount):'—'],['Category',_bChip(b.category)],['Property',_bE(b.property_name||'—')],['Due Date',_bD(b.due_date)],['Debit Account',_bE(b.suggested_debit_account||'—')]].map(([l,v])=>`<div><div style="font-size:11px;font-weight:700;color:var(--ink2);margin-bottom:3px">${l}</div><div style="font-weight:500">${v}</div></div>`).join('')}
+    </div>
+    <div style="font-size:11px;font-weight:700;color:var(--ink2);letter-spacing:.04em;text-transform:uppercase;margin-bottom:6px">NetSuite Journal Entry</div>
+    <div style="background:var(--panel-2);border:1px solid var(--line2);border-radius:10px;padding:12px;margin-bottom:${b.confidence_notes||b.source_email_subject?'12px':'16px'}">${lines}${je.memo?`<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--line2);font-size:12px;color:var(--ink2);font-style:italic">${_bE(je.memo)}</div>`:''}</div>
+    ${b.confidence_notes?`<div style="background:var(--amber-lt);border:1px solid #fde68a;border-radius:8px;padding:9px 12px;font-size:12.5px;color:#92400e;margin-bottom:12px">⚠️ ${_bE(b.confidence_notes)}</div>`:''}
+    ${b.source_email_subject?`<div style="font-size:12px;color:var(--ink2);margin-bottom:14px;padding:8px 12px;background:var(--panel-2);border-radius:8px">📧 ${_bE(b.source_email_from||'')} · ${_bE(b.source_email_subject)}</div>`:''}
+    ${canAct?`<div style="display:flex;gap:8px;margin-top:4px">
+      <button onclick="_bSetSt('${b.id}','approved')" class="btn sm" style="background:#e4f8f1;color:#065f46;border:1px solid #a7f3d0;box-shadow:none;flex:1">✓ Approve</button>
+      <button onclick="_bSetSt('${b.id}','rejected')" class="btn sm ghost" style="color:var(--red);border-color:#f9c6c8;flex:1">✗ Reject</button>
+    </div>`:''}
+    ${b.status==='approved'?`<button onclick="_bExSingle('${b.id}')" class="btn sm ghost" style="margin-top:10px;width:100%">⬇ Export this bill</button>`:''}`;
+  document.getElementById('bDrawer').style.transform='translateX(0)';
+  document.getElementById('bDrawerOverlay').style.opacity='1';
+  document.getElementById('bDrawerOverlay').style.pointerEvents='all';
+}
+
+function _billsCloseDrawer(){
+  document.getElementById('bDrawer').style.transform='translateX(100%)';
+  document.getElementById('bDrawerOverlay').style.opacity='0';
+  document.getElementById('bDrawerOverlay').style.pointerEvents='none';
+}
+
+async function _bSetSt(id,status){
+  try{
+    await fetch('/api/bills/'+id,{method:'PATCH',headers:{Authorization:'Bearer '+_billsSess.access_token,'Content-Type':'application/json'},body:JSON.stringify({status})});
+    const i=_bills.findIndex(b=>b.id===id);if(i>=0)_bills[i].status=status;
+    _billsCloseDrawer();_bRender();
+  }catch(e){alert('Update failed: '+e.message);}
+}
+
+async function _bExport(){
+  const params=new URLSearchParams();
+  const s=document.getElementById('bfS')?.value,c=document.getElementById('bfC')?.value,f=document.getElementById('bfF')?.value,t=document.getElementById('bfT')?.value;
+  if(s)params.set('status',s);if(c)params.set('category',c);if(f)params.set('from',f);if(t)params.set('to',t);
+  const r=await fetch('/api/bills/export.csv?'+params,{headers:{Authorization:'Bearer '+_billsSess.access_token}});
+  const blob=await r.blob();const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='silkhaus-bills.csv';a.click();URL.revokeObjectURL(url);
+}
+
+function _bExSingle(id){
+  const b=_bills.find(x=>x.id===id);if(!b)return;
+  const csv=[['External ID','Type','Vendor','Date','Due Date','Account','Amount','VAT','Currency','Memo','Category','Property'],[b.id,'VendBill',b.vendor_name||'',b.bill_date||'',b.due_date||'',b.suggested_debit_account||'',b.amount||'',b.tax_amount||'',b.currency||'AED',b.netsuite_memo||'',b.category||'',b.property_name||'']].map(r=>r.map(c=>'"'+String(c||'').replace(/"/g,'""')+'"').join(',')).join('\n');
+  const blob=new Blob([csv],{type:'text/csv'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='bill-'+b.id+'.csv';a.click();URL.revokeObjectURL(url);
+}
+
+function _bE(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function _bD(d){if(!d)return'—';const dt=new Date(d+'T00:00:00');return dt.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});}
+function _bA(n){if(n==null||n==='')return'—';return Number(n).toLocaleString('en-AE',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function _bChip(cat){const m={'Utilities - Electricity':['#fef3c7','#92400e'],'Utilities - Water':['#dbeafe','#1e3a8a'],'Utilities - Gas':['#f3f4f6','#374151'],'Maintenance':['#ede9fe','#5b21b6'],'Repairs':['#fee2e2','#7f1d1d'],'Cleaning':['#d1fae5','#064e3b']};const c=m[cat]||['var(--panel-3)','var(--ink2)'];return`<span style="background:${c[0]};color:${c[1]};padding:3px 9px;border-radius:7px;font-size:11.5px;font-weight:600;white-space:nowrap">${_bE(cat||'—')}</span>`;}
+function _bBadge(s){const m={pending_review:['#fdf3e3','#b45309'],approved:['#e4f8f1','#065f46'],rejected:['#fdecec','#991b1b'],exported:['#e9f0ff','#1e40af']};const l={pending_review:'Pending',approved:'Approved',rejected:'Rejected',exported:'Exported'};const c=m[s]||m.pending_review;return`<span style="background:${c[0]};color:${c[1]};padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700">${l[s]||s||'—'}</span>`;}
+
+function _bLoginHtml(){return`<div style="display:flex;align-items:center;justify-content:center;min-height:360px"><div class="card" style="padding:44px;text-align:center;max-width:380px"><div style="font-size:36px;margin-bottom:16px">📋</div><h2 style="margin-bottom:8px">Sign in to view bills</h2><p class="muted" style="margin-bottom:24px;font-size:13.5px">Use your Silkhaus Google account to access the bill automation module.</p><button onclick="_bSignIn()" style="background:#fff;color:#3c4043;border:1px solid #dadce0;border-radius:10px;padding:11px 20px;font-size:13.5px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:11px;width:100%;cursor:pointer;font-family:inherit;box-shadow:0 1px 3px rgba(0,0,0,.08)"><svg width="18" height="18" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>Sign in with Google</button></div></div>`;}
+function _bSetupHtml(){return`<div class="card" style="padding:32px;max-width:520px"><div style="font-size:28px;margin-bottom:12px">⚙️</div><h2 style="margin-bottom:8px">Supabase setup required</h2><p class="muted" style="margin-bottom:16px;font-size:13.5px">Add these environment variables to Vercel to enable bill automation.</p><code style="display:block;background:var(--panel-3);padding:12px 16px;border-radius:10px;font-size:12px;line-height:2">SUPABASE_URL · SUPABASE_ANON_KEY · SUPABASE_SERVICE_ROLE_KEY<br>ANTHROPIC_API_KEY · GOOGLE_CLIENT_ID · GOOGLE_CLIENT_SECRET</code></div>`;}
+async function _bSignIn(){await _sbB.auth.signInWithOAuth({provider:'google',options:{redirectTo:window.location.href.split('?')[0]+'?tab=bills'}});}
 
 /* ───────────────── boot ───────────────── */
 (function(){let t='light';try{t=localStorage.getItem('silk_theme')||'light';}catch(e){}applyTheme(t);})();

@@ -3,3 +3,6 @@ __pycache__/
 *.pyc
 .env
 .claude/
+
+# Separate project — own repo, own deploy, not part of this dashboard's git history
+finance-platform/
