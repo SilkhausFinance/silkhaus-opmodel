@@ -15,7 +15,7 @@ SUPABASE_ANON_KEY    = os.environ.get("SUPABASE_ANON_KEY", "")
 ANTHROPIC_KEY        = os.environ.get("ANTHROPIC_API_KEY", "")
 GOOGLE_CLIENT_ID     = os.environ.get("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
-BASE_URL             = os.environ.get("VERCEL_URL", "http://localhost:5000")
+BASE_URL             = os.environ.get("BASE_URL") or os.environ.get("VERCEL_URL", "http://localhost:5000")
 if BASE_URL and not BASE_URL.startswith("http"):
     BASE_URL = f"https://{BASE_URL}"
 
