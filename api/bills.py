@@ -3,7 +3,7 @@ Silkhaus Finance Hub — Bills API
 Handles: config, Gmail OAuth+sync, bill extraction+CRUD, admin users, NetSuite CSV export.
 """
 from flask import Flask, request, jsonify, Response, redirect
-import json, os, io, csv, base64, mimetypes, urllib.request, urllib.parse, urllib.error
+import json, os, io, csv, base64, re, mimetypes, urllib.request, urllib.parse, urllib.error
 from datetime import datetime, timezone
 
 app = Flask(__name__)
@@ -119,6 +119,37 @@ def _google_get(url, access_token):
         return json.loads(r.read())
 
 
+def _google_get_bytes(url, access_token):
+    req = urllib.request.Request(url, headers={"Authorization": f"Bearer {access_token}"})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        return r.read()
+
+
+def _drive_file_id(url):
+    patterns = [
+        r"drive\.google\.com/file/d/([a-zA-Z0-9_-]+)",
+        r"drive\.google\.com/open\?id=([a-zA-Z0-9_-]+)",
+        r"docs\.google\.com/\w+/d/([a-zA-Z0-9_-]+)",
+    ]
+    for p in patterns:
+        m = re.search(p, url)
+        if m:
+            return m.group(1)
+    return None
+
+
+def _sheets_id(url):
+    m = re.search(r"spreadsheets/d/([a-zA-Z0-9_-]+)", url)
+    return m.group(1) if m else None
+
+
+SUPPORTED_MIMES = {
+    "application/pdf",
+    "image/jpeg", "image/jpg", "image/png", "image/gif",
+    "image/webp", "image/tiff", "image/bmp", "image/heic",
+}
+
+
 def _google_post(url, data):
     enc = urllib.parse.urlencode(data).encode()
     req = urllib.request.Request(url, data=enc, method="POST",
@@ -224,7 +255,11 @@ def gmail_auth_url():
         "client_id": GOOGLE_CLIENT_ID,
         "redirect_uri": GMAIL_REDIRECT_URI,
         "response_type": "code",
-        "scope": "https://www.googleapis.com/auth/gmail.readonly",
+        "scope": " ".join([
+            "https://www.googleapis.com/auth/gmail.readonly",
+            "https://www.googleapis.com/auth/drive.readonly",
+            "https://www.googleapis.com/auth/spreadsheets.readonly",
+        ]),
         "access_type": "offline",
         "prompt": "consent",
     }
@@ -284,29 +319,80 @@ def gmail_sync():
     if not access_token:
         return jsonify({"error": "gmail_not_connected"}), 400
 
-    SYNC_START = datetime(2026, 6, 1, tzinfo=timezone.utc)
-    after_date = SYNC_START.strftime("%Y/%m/%d")
+    sb = _sb()
+
+    # Incremental sync: use last_sync timestamp, fall back to 2026/06/01.
+    # Pass {"from_date": "2026/06/01"} in the request body to force a full re-scan.
+    body_data = request.get_json(silent=True) or {}
+    from_date_override = body_data.get("from_date")
+    if from_date_override:
+        after_date = from_date_override
+    else:
+        try:
+            row = sb.table("settings").select("value").eq("key", "gmail_last_sync").single().execute()
+            last_val = (row.data or {}).get("value")
+            if last_val:
+                last_dt = datetime.fromisoformat(last_val.replace("Z", "+00:00"))
+                after_date = last_dt.strftime("%Y/%m/%d")
+            else:
+                after_date = "2026/06/01"
+        except Exception:
+            after_date = "2026/06/01"
+
     query = f"has:attachment after:{after_date} -in:sent"
 
     try:
         msgs = _google_get(
-            f"https://gmail.googleapis.com/gmail/v1/users/me/messages?"
-            + urllib.parse.urlencode({"q": query, "maxResults": 100}),
+            "https://gmail.googleapis.com/gmail/v1/users/me/messages?"
+            + urllib.parse.urlencode({"q": query, "maxResults": 200}),
             access_token,
         ).get("messages", [])
     except Exception as e:
         return jsonify({"error": "gmail_read_failed", "detail": str(e)}), 500
 
-    sb = _sb()
     found, skipped, errors = 0, 0, 0
+
+    def _save_bill(extracted, msg_id, subject, sender, dedup_key=None):
+        nonlocal found, skipped, errors
+        if "error" in extracted:
+            skipped += 1
+            return
+        key = dedup_key or msg_id
+        existing = sb.table("bills").select("id").eq("source_email_id", key).execute()
+        if existing.data:
+            skipped += 1
+            return
+        je = _build_je(extracted)
+        try:
+            sb.table("bills").insert({
+                "vendor_name": extracted.get("vendor_name"),
+                "bill_number": extracted.get("bill_number"),
+                "bill_date": extracted.get("bill_date"),
+                "due_date": extracted.get("due_date"),
+                "currency": extracted.get("currency") or "AED",
+                "amount": extracted.get("amount"),
+                "tax_amount": extracted.get("tax_amount"),
+                "category": extracted.get("category"),
+                "expense_nature": "Opex",
+                "property_name": extracted.get("property_name"),
+                "suggested_debit_account": extracted.get("suggested_debit_account"),
+                "suggested_credit_account": "Accounts Payable",
+                "netsuite_memo": extracted.get("netsuite_memo"),
+                "suggested_je": json.dumps(je),
+                "extracted_data": json.dumps(extracted),
+                "confidence_notes": extracted.get("confidence_notes"),
+                "source": "gmail_sync",
+                "source_email_id": key,
+                "source_email_subject": subject,
+                "source_email_from": sender,
+                "status": "pending_review",
+            }).execute()
+            found += 1
+        except Exception:
+            errors += 1
 
     for msg_ref in msgs:
         msg_id = msg_ref["id"]
-        # Deduplication: skip if already processed
-        existing = sb.table("bills").select("id").eq("source_email_id", msg_id).execute()
-        if existing.data:
-            skipped += 1
-            continue
 
         try:
             msg = _google_get(
@@ -321,12 +407,12 @@ def gmail_sync():
         subject = headers.get("subject", "")
         sender = headers.get("from", "")
 
-        # Find attachment parts
+        # ── 1. Direct PDF / image attachments ────────────────────────────────
         attachments = []
         def _walk(parts):
             for part in parts:
                 mime = part.get("mimeType", "")
-                if mime in ("application/pdf", "image/jpeg", "image/png", "image/webp"):
+                if mime in SUPPORTED_MIMES and (part.get("body") or {}).get("attachmentId"):
                     attachments.append(part)
                 if part.get("parts"):
                     _walk(part["parts"])
@@ -336,7 +422,10 @@ def gmail_sync():
         for part in attachments:
             att_id = (part.get("body") or {}).get("attachmentId")
             filename = part.get("filename") or "attachment.pdf"
-            if not att_id:
+            dedup = f"{msg_id}:{att_id}"
+            existing = sb.table("bills").select("id").eq("source_email_id", dedup).execute()
+            if existing.data:
+                skipped += 1
                 continue
             try:
                 att = _google_get(
@@ -348,39 +437,67 @@ def gmail_sync():
             except Exception:
                 errors += 1
                 continue
+            _save_bill(extracted, msg_id, subject, sender, dedup_key=dedup)
 
-            if "error" in extracted:
-                skipped += 1
+        # ── 2. Google Sheets links in email body ──────────────────────────────
+        # Extract plain text body from the message payload
+        def _body_text(payload):
+            """Recursively extract plain text from a Gmail message payload."""
+            data = (payload.get("body") or {}).get("data", "")
+            text = base64.urlsafe_b64decode(data + "==").decode("utf-8", errors="ignore") if data else ""
+            for part in payload.get("parts", []):
+                text += _body_text(part)
+            return text
+
+        body_text = _body_text(msg.get("payload", {}))
+        sheet_urls = re.findall(r"https://docs\.google\.com/spreadsheets/d/[^\s\"'>]+", body_text)
+
+        for sheet_url in set(sheet_urls):
+            sid = _sheets_id(sheet_url)
+            if not sid:
                 continue
-
-            je = _build_je(extracted)
             try:
-                sb.table("bills").insert({
-                    "vendor_name": extracted.get("vendor_name"),
-                    "bill_number": extracted.get("bill_number"),
-                    "bill_date": extracted.get("bill_date"),
-                    "due_date": extracted.get("due_date"),
-                    "currency": extracted.get("currency") or "AED",
-                    "amount": extracted.get("amount"),
-                    "tax_amount": extracted.get("tax_amount"),
-                    "category": extracted.get("category"),
-                    "expense_nature": "Opex",
-                    "property_name": extracted.get("property_name"),
-                    "suggested_debit_account": extracted.get("suggested_debit_account"),
-                    "suggested_credit_account": "Accounts Payable",
-                    "netsuite_memo": extracted.get("netsuite_memo"),
-                    "suggested_je": json.dumps(je),
-                    "extracted_data": json.dumps(extracted),
-                    "confidence_notes": extracted.get("confidence_notes"),
-                    "source": "gmail_sync",
-                    "source_email_id": msg_id,
-                    "source_email_subject": subject,
-                    "source_email_from": sender,
-                    "status": "pending_review",
-                }).execute()
-                found += 1
+                sheet_data = _google_get(
+                    f"https://sheets.googleapis.com/v4/spreadsheets/{sid}/values/A:Z",
+                    access_token,
+                )
+                rows = sheet_data.get("values", [])
             except Exception:
                 errors += 1
+                continue
+
+            # Find all Drive file URLs within cell values
+            drive_urls = []
+            for row in rows:
+                for cell in row:
+                    if "drive.google.com" in str(cell) or "docs.google.com" in str(cell):
+                        drive_urls.append(str(cell))
+
+            for durl in drive_urls:
+                fid = _drive_file_id(durl)
+                if not fid:
+                    continue
+                dedup = f"{msg_id}:drive:{fid}"
+                existing = sb.table("bills").select("id").eq("source_email_id", dedup).execute()
+                if existing.data:
+                    skipped += 1
+                    continue
+                try:
+                    # Get file metadata to determine MIME type and filename
+                    meta = _google_get(
+                        f"https://www.googleapis.com/drive/v3/files/{fid}?fields=name,mimeType",
+                        access_token,
+                    )
+                    fname = meta.get("name", "invoice.pdf")
+                    file_bytes = _google_get_bytes(
+                        f"https://www.googleapis.com/drive/v3/files/{fid}?alt=media",
+                        access_token,
+                    )
+                    extracted = _extract_from_bytes(file_bytes, fname)
+                except Exception:
+                    errors += 1
+                    continue
+                _save_bill(extracted, msg_id, subject, sender, dedup_key=dedup)
 
     # Update last sync timestamp
     sb.table("settings").upsert({
@@ -389,7 +506,8 @@ def gmail_sync():
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }).execute()
 
-    return jsonify({"ok": True, "found": found, "skipped": skipped, "errors": errors})
+    return jsonify({"ok": True, "found": found, "skipped": skipped, "errors": errors,
+                    "synced_from": after_date})
 
 
 # ── Bill extraction (no DB save — used for manual upload review) ─────────────
