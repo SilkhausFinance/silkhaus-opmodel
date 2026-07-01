@@ -352,6 +352,11 @@ def gmail_sync():
 
     found, dupes, out_of_scope, errors = 0, 0, 0, 0
     error_samples = []
+    extractions_done = 0
+    has_more = False
+    # Vercel Hobby caps serverless functions at 10 s. Each Claude extraction
+    # takes ~2-3 s, so cap at 4 per call and chain from the frontend.
+    MAX_PER_CALL = 4
 
     def _save_bill(extracted, msg_id, subject, sender, dedup_key=None):
         nonlocal found, dupes, out_of_scope, errors
@@ -393,6 +398,9 @@ def gmail_sync():
             errors += 1
 
     for msg_ref in msgs:
+        if extractions_done >= MAX_PER_CALL:
+            has_more = True
+            break
         msg_id = msg_ref["id"]
 
         try:
@@ -422,6 +430,9 @@ def gmail_sync():
         _walk(msg.get("payload", {}).get("parts", []))
 
         for part in attachments:
+            if extractions_done >= MAX_PER_CALL:
+                has_more = True
+                break
             att_id = (part.get("body") or {}).get("attachmentId")
             filename = part.get("filename") or "attachment.pdf"
             dedup = f"{msg_id}:{att_id}"
@@ -436,6 +447,7 @@ def gmail_sync():
                 )
                 file_bytes = base64.urlsafe_b64decode(att["data"] + "==")
                 extracted = _extract_from_bytes(file_bytes, filename)
+                extractions_done += 1
             except Exception as e:
                 errors += 1
                 if len(error_samples) < 3: error_samples.append(f"att {filename}: {e}")
@@ -478,6 +490,9 @@ def gmail_sync():
                         drive_urls.append(str(cell))
 
             for durl in drive_urls:
+                if extractions_done >= MAX_PER_CALL:
+                    has_more = True
+                    break
                 fid = _drive_file_id(durl)
                 if not fid:
                     continue
@@ -487,7 +502,6 @@ def gmail_sync():
                     dupes += 1
                     continue
                 try:
-                    # Get file metadata to determine MIME type and filename
                     meta = _google_get(
                         f"https://www.googleapis.com/drive/v3/files/{fid}?fields=name,mimeType",
                         access_token,
@@ -498,6 +512,7 @@ def gmail_sync():
                         access_token,
                     )
                     extracted = _extract_from_bytes(file_bytes, fname)
+                    extractions_done += 1
                 except Exception as e:
                     errors += 1
                     if len(error_samples) < 3: error_samples.append(f"drive {fid}: {e}")
@@ -513,7 +528,7 @@ def gmail_sync():
 
     return jsonify({"ok": True, "found": found, "dupes": dupes,
                     "out_of_scope": out_of_scope, "errors": errors,
-                    "synced_from": after_date,
+                    "synced_from": after_date, "has_more": has_more,
                     "error_samples": error_samples})
 
 

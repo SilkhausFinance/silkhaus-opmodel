@@ -557,27 +557,39 @@ async function syncGmail(fromDate) {
   const isRescan = !!fromDate;
   const btn = document.getElementById(isRescan ? 'btn-rescan' : 'btn-sync');
   const origLabel = isRescan ? '↩ Go' : '<span>🔄</span> Sync new';
-  if (btn) { btn.disabled = true; btn.innerHTML = isRescan ? 'Scanning…' : '<div class="spinner" style="width:14px;height:14px;border-width:2px"></div> Syncing…'; }
+  if (btn) { btn.disabled = true; }
   const dot = document.getElementById('sync-dot');
-  dot.className = 'sync-dot syncing';
-  document.getElementById('sync-text').innerHTML = `<strong>Gmail</strong> — ${isRescan ? 're-scanning from ' + fromDate : 'syncing now…'}`;
+  const txt = document.getElementById('sync-text');
+  const body = fromDate ? { from_date: fromDate } : {};
+  let totFound = 0, totDupes = 0, totOOS = 0, totErr = 0, firstErrSample = '', batch = 0;
   try {
-    const body = fromDate ? { from_date: fromDate } : {};
-    const res = await api('POST', '/api/gmail/sync', body);
-    const d = await res.json();
-    if (d.error) { toast('Sync failed: ' + d.error + (d.detail ? ' — ' + d.detail : ''), 'error'); return; }
-    const parts = [`${d.found} new bill${d.found !== 1 ? 's' : ''} added`];
-    if (d.dupes) parts.push(`${d.dupes} already in database`);
-    if (d.out_of_scope) parts.push(`${d.out_of_scope} out of scope`);
-    if (d.errors) parts.push(`${d.errors} error${d.errors !== 1 ? 's' : ''}`);
-    const sampleMsg = d.error_samples && d.error_samples.length ? '\n\nFirst error: ' + d.error_samples[0] : '';
-    toast(`From ${d.synced_from || fromDate || 'last sync'}: ${parts.join(' · ')}${sampleMsg}`, d.found > 0 ? 'success' : (d.errors > 0 ? 'error' : 'info'));
+    while (true) {
+      batch++;
+      if (btn) btn.innerHTML = `Batch ${batch}…`;
+      dot.className = 'sync-dot syncing';
+      txt.innerHTML = `<strong>Gmail</strong> — processing batch ${batch}…`;
+      const res = await api('POST', '/api/gmail/sync', body);
+      if (!res.ok) { const t = await res.text(); throw new Error('Server error: ' + t.slice(0, 120)); }
+      const d = await res.json();
+      if (d.error) { toast('Sync failed: ' + d.error + (d.detail ? ' — ' + d.detail : ''), 'error'); return; }
+      totFound += d.found || 0; totDupes += d.dupes || 0; totOOS += d.out_of_scope || 0; totErr += d.errors || 0;
+      if (!firstErrSample && d.error_samples && d.error_samples.length) firstErrSample = d.error_samples[0];
+      if (!d.has_more) break;
+    }
+    const parts = [`${totFound} new bill${totFound !== 1 ? 's' : ''} added`];
+    if (totDupes) parts.push(`${totDupes} already in database`);
+    if (totOOS) parts.push(`${totOOS} out of scope`);
+    if (totErr) parts.push(`${totErr} error${totErr !== 1 ? 's' : ''}`);
+    const sampleMsg = firstErrSample ? ' · Error: ' + firstErrSample : '';
+    toast(`Done (${batch} batch${batch !== 1 ? 'es' : ''}): ${parts.join(' · ')}${sampleMsg}`,
+          totFound > 0 ? 'success' : (totErr > 0 ? 'error' : 'info'));
     CFG.gmail_last_sync = new Date().toISOString();
     await updateGmailBar();
     await loadBills();
   } catch(e) {
     toast('Sync failed: ' + e.message, 'error');
   } finally {
+    dot.className = 'sync-dot';
     if (btn) { btn.disabled = false; btn.innerHTML = origLabel; }
   }
 }

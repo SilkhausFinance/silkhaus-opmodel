@@ -2791,18 +2791,27 @@ async function _billsSync(fromDate){
   const isRescan=!!fromDate;
   const btn=document.getElementById(isRescan?'bResyncBtn':'bSyncBtn');
   if(btn){btn.disabled=true;btn.textContent=isRescan?'Scanning…':'Syncing…';}
+  let totFound=0,totDupes=0,totOOS=0,totErr=0,firstErrSample='';
+  const body=fromDate?{from_date:fromDate}:{};
+  let batchNum=0;
   try{
-    const body=fromDate?{from_date:fromDate}:{};
-    const r=await fetch('/api/gmail/sync',{method:'POST',headers:{Authorization:'Bearer '+_billsSess.access_token,'Content-Type':'application/json'},body:JSON.stringify(body)});
-    const d=await r.json();
-    if(d.error){alert('Sync failed: '+d.error+(d.detail?' — '+d.detail:''));return;}
-    const from=d.synced_from||'?';
-    const parts=[`${d.found} new bill${d.found!==1?'s':''} added`];
-    if(d.dupes)parts.push(`${d.dupes} already in database (skipped)`);
-    if(d.out_of_scope)parts.push(`${d.out_of_scope} out of scope`);
-    if(d.errors)parts.push(`${d.errors} error${d.errors!==1?'s':''}`);
-    const errDetail=d.error_samples&&d.error_samples.length?'\n\nError detail:\n'+d.error_samples.join('\n'):'';
-    alert(`Scan from ${from}:\n\n${parts.join('\n')}${errDetail}`);
+    while(true){
+      batchNum++;
+      if(btn)btn.textContent=`Batch ${batchNum}…`;
+      const r=await fetch('/api/gmail/sync',{method:'POST',headers:{Authorization:'Bearer '+_billsSess.access_token,'Content-Type':'application/json'},body:JSON.stringify(body)});
+      if(!r.ok){const txt=await r.text();throw new Error('Server error: '+txt.slice(0,120));}
+      const d=await r.json();
+      if(d.error){alert('Sync failed: '+d.error+(d.detail?' — '+d.detail:''));return;}
+      totFound+=d.found||0;totDupes+=d.dupes||0;totOOS+=d.out_of_scope||0;totErr+=d.errors||0;
+      if(!firstErrSample&&d.error_samples&&d.error_samples.length)firstErrSample=d.error_samples[0];
+      if(!d.has_more)break;
+    }
+    const parts=[`${totFound} new bill${totFound!==1?'s':''} added`];
+    if(totDupes)parts.push(`${totDupes} already in database (skipped)`);
+    if(totOOS)parts.push(`${totOOS} out of scope`);
+    if(totErr)parts.push(`${totErr} error${totErr!==1?'s':''}`);
+    const errDetail=firstErrSample?'\n\nError: '+firstErrSample:'';
+    alert(`Scan complete (${batchNum} batch${batchNum!==1?'es':''}):\n\n${parts.join('\n')}${errDetail}`);
     _billsCfg.gmail_last_sync=new Date().toISOString();
     await _billsLoad();
   }catch(e){alert('Sync failed: '+e.message);}
