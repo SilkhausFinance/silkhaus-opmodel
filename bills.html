@@ -570,7 +570,8 @@ async function syncGmail(fromDate) {
     if (d.dupes) parts.push(`${d.dupes} already in database`);
     if (d.out_of_scope) parts.push(`${d.out_of_scope} out of scope`);
     if (d.errors) parts.push(`${d.errors} error${d.errors !== 1 ? 's' : ''}`);
-    toast(`From ${d.synced_from || fromDate || 'last sync'}: ${parts.join(' · ')}`, d.found > 0 ? 'success' : 'info');
+    const sampleMsg = d.error_samples && d.error_samples.length ? '\n\nFirst error: ' + d.error_samples[0] : '';
+    toast(`From ${d.synced_from || fromDate || 'last sync'}: ${parts.join(' · ')}${sampleMsg}`, d.found > 0 ? 'success' : (d.errors > 0 ? 'error' : 'info'));
     CFG.gmail_last_sync = new Date().toISOString();
     await updateGmailBar();
     await loadBills();

@@ -351,6 +351,7 @@ def gmail_sync():
         return jsonify({"error": "gmail_read_failed", "detail": str(e)}), 500
 
     found, dupes, out_of_scope, errors = 0, 0, 0, 0
+    error_samples = []
 
     def _save_bill(extracted, msg_id, subject, sender, dedup_key=None):
         nonlocal found, dupes, out_of_scope, errors
@@ -399,8 +400,9 @@ def gmail_sync():
                 f"https://gmail.googleapis.com/gmail/v1/users/me/messages/{msg_id}?format=full",
                 access_token,
             )
-        except Exception:
+        except Exception as e:
             errors += 1
+            if len(error_samples) < 3: error_samples.append(f"msg fetch: {e}")
             continue
 
         headers = {h["name"].lower(): h["value"] for h in msg.get("payload", {}).get("headers", [])}
@@ -434,8 +436,9 @@ def gmail_sync():
                 )
                 file_bytes = base64.urlsafe_b64decode(att["data"] + "==")
                 extracted = _extract_from_bytes(file_bytes, filename)
-            except Exception:
+            except Exception as e:
                 errors += 1
+                if len(error_samples) < 3: error_samples.append(f"att {filename}: {e}")
                 continue
             _save_bill(extracted, msg_id, subject, sender, dedup_key=dedup)
 
@@ -462,8 +465,9 @@ def gmail_sync():
                     access_token,
                 )
                 rows = sheet_data.get("values", [])
-            except Exception:
+            except Exception as e:
                 errors += 1
+                if len(error_samples) < 3: error_samples.append(f"sheets: {e}")
                 continue
 
             # Find all Drive file URLs within cell values
@@ -494,8 +498,9 @@ def gmail_sync():
                         access_token,
                     )
                     extracted = _extract_from_bytes(file_bytes, fname)
-                except Exception:
+                except Exception as e:
                     errors += 1
+                    if len(error_samples) < 3: error_samples.append(f"drive {fid}: {e}")
                     continue
                 _save_bill(extracted, msg_id, subject, sender, dedup_key=dedup)
 
@@ -508,7 +513,8 @@ def gmail_sync():
 
     return jsonify({"ok": True, "found": found, "dupes": dupes,
                     "out_of_scope": out_of_scope, "errors": errors,
-                    "synced_from": after_date})
+                    "synced_from": after_date,
+                    "error_samples": error_samples})
 
 
 # ── Bill extraction (no DB save — used for manual upload review) ─────────────
