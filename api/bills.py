@@ -285,8 +285,8 @@ def gmail_sync():
         return jsonify({"error": "gmail_not_connected"}), 400
 
     SYNC_START = datetime(2026, 6, 1, tzinfo=timezone.utc)
-    after_epoch = int(SYNC_START.timestamp())
-    query = f"has:attachment after:{after_epoch} -in:sent"
+    after_date = SYNC_START.strftime("%Y/%m/%d")
+    query = f"has:attachment after:{after_date} -in:sent"
 
     try:
         msgs = _google_get(
