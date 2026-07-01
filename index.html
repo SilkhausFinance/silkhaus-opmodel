@@ -2738,8 +2738,15 @@ function _bRender(){
       <h2 style="font-size:18px;font-weight:700;margin-bottom:4px">Bill Automation</h2>
       <p class="muted" style="font-size:13px">Utilities · Maintenance · Repairs · Cleaning — AI-extracted, ready for NetSuite</p>
     </div>
-    <div class="row-actions">
-      ${canSync?`<button class="btn sm" id="bSyncBtn" onclick="_billsSync()">🔄 Sync Gmail</button><button class="btn sm ghost" id="bResyncBtn" onclick="_billsResync()" title="Re-scan all emails from June 1, 2026">↩ Re-scan Jun+</button>`:`<button class="btn sm ghost" disabled style="opacity:.5;cursor:not-allowed" title="${_billsCfg.gmail_connected?'Insufficient role':'Gmail not connected'}">🔄 Sync Gmail</button>`}
+    <div class="row-actions" style="align-items:center">
+      ${canSync?`
+        <button class="btn sm" id="bSyncBtn" onclick="_billsSync()" title="Sync emails since last successful sync">🔄 Sync new</button>
+        <span style="display:flex;align-items:center;gap:6px;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:4px 8px">
+          <span style="font-size:11.5px;font-weight:600;color:var(--ink2);white-space:nowrap">Re-scan from</span>
+          <input type="date" id="bRescanDate" value="2026-06-01" max="${new Date().toISOString().slice(0,10)}" style="background:transparent;border:none;font-size:12px;color:var(--ink);font-family:inherit;outline:none;cursor:pointer;width:130px">
+          <button id="bResyncBtn" onclick="_billsResync()" style="background:var(--panel-3);border:1px solid var(--line);border-radius:6px;padding:3px 10px;font-size:12px;font-weight:600;color:var(--ink);cursor:pointer;white-space:nowrap">↩ Go</button>
+        </span>
+      `:`<button class="btn sm ghost" disabled style="opacity:.5;cursor:not-allowed" title="${_billsCfg.gmail_connected?'Insufficient role':'Gmail not connected'}">🔄 Sync new</button>`}
       ${canUpload?`<button class="btn sm ghost" onclick="document.getElementById('bFileIn').click()">📤 Upload</button>`:''}
       <button class="btn sm ghost" onclick="_bExport()">⬇ CSV</button>
     </div>
@@ -2782,25 +2789,33 @@ function _bRender(){
 
 async function _billsSync(fromDate){
   const isRescan=!!fromDate;
-  const btnId=isRescan?'bResyncBtn':'bSyncBtn';
-  const btn=document.getElementById(btnId);
-  if(btn){btn.disabled=true;btn.textContent=isRescan?'Re-scanning…':'Syncing…';}
+  const btn=document.getElementById(isRescan?'bResyncBtn':'bSyncBtn');
+  if(btn){btn.disabled=true;btn.textContent=isRescan?'Scanning…':'Syncing…';}
   try{
     const body=fromDate?{from_date:fromDate}:{};
     const r=await fetch('/api/gmail/sync',{method:'POST',headers:{Authorization:'Bearer '+_billsSess.access_token,'Content-Type':'application/json'},body:JSON.stringify(body)});
     const d=await r.json();
     if(d.error){alert('Sync failed: '+d.error+(d.detail?' — '+d.detail:''));return;}
-    const from=d.synced_from||'unknown date';
-    alert(`Sync done (from ${from}): ${d.found} new bill${d.found!==1?'s':''} found${d.errors?`, ${d.errors} error${d.errors!==1?'s':''}`:''}.`);
+    const from=d.synced_from||'?';
+    const parts=[`${d.found} new bill${d.found!==1?'s':''} added`];
+    if(d.dupes)parts.push(`${d.dupes} already in database (skipped)`);
+    if(d.out_of_scope)parts.push(`${d.out_of_scope} out of scope`);
+    if(d.errors)parts.push(`${d.errors} error${d.errors!==1?'s':''}`);
+    alert(`Scan from ${from}:\n\n${parts.join('\n')}`);
     _billsCfg.gmail_last_sync=new Date().toISOString();
     await _billsLoad();
   }catch(e){alert('Sync failed: '+e.message);}
-  finally{if(btn){btn.disabled=false;btn.innerHTML=isRescan?'↩ Re-scan Jun+':'🔄 Sync Gmail';}}
+  finally{if(btn){btn.disabled=false;btn.innerHTML=isRescan?'↩ Go':'🔄 Sync new';}}
 }
 
 async function _billsResync(){
-  if(!confirm('This will re-scan ALL emails from June 1, 2026 and may take a minute. Continue?'))return;
-  await _billsSync('2026/06/01');
+  const dateInput=document.getElementById('bRescanDate');
+  const val=dateInput?dateInput.value:'2026-06-01';
+  if(!val){alert('Please pick a date first.');return;}
+  // Convert YYYY-MM-DD → YYYY/MM/DD for the API
+  const fromDate=val.replace(/-/g,'/');
+  if(!confirm(`Re-scan emails from ${val}?\n\nAlready-imported bills will not be duplicated — only new attachments will be added.`))return;
+  await _billsSync(fromDate);
 }
 
 function _bHandleFile(input){const f=input.files[0];if(!f)return;input.value='';_bExtract(f);}

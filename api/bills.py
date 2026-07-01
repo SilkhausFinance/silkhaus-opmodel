@@ -350,17 +350,17 @@ def gmail_sync():
     except Exception as e:
         return jsonify({"error": "gmail_read_failed", "detail": str(e)}), 500
 
-    found, skipped, errors = 0, 0, 0
+    found, dupes, out_of_scope, errors = 0, 0, 0, 0
 
     def _save_bill(extracted, msg_id, subject, sender, dedup_key=None):
-        nonlocal found, skipped, errors
+        nonlocal found, dupes, out_of_scope, errors
         if "error" in extracted:
-            skipped += 1
+            out_of_scope += 1
             return
         key = dedup_key or msg_id
         existing = sb.table("bills").select("id").eq("source_email_id", key).execute()
         if existing.data:
-            skipped += 1
+            dupes += 1
             return
         je = _build_je(extracted)
         try:
@@ -425,7 +425,7 @@ def gmail_sync():
             dedup = f"{msg_id}:{att_id}"
             existing = sb.table("bills").select("id").eq("source_email_id", dedup).execute()
             if existing.data:
-                skipped += 1
+                dupes += 1
                 continue
             try:
                 att = _google_get(
@@ -480,7 +480,7 @@ def gmail_sync():
                 dedup = f"{msg_id}:drive:{fid}"
                 existing = sb.table("bills").select("id").eq("source_email_id", dedup).execute()
                 if existing.data:
-                    skipped += 1
+                    dupes += 1
                     continue
                 try:
                     # Get file metadata to determine MIME type and filename
@@ -506,7 +506,8 @@ def gmail_sync():
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }).execute()
 
-    return jsonify({"ok": True, "found": found, "skipped": skipped, "errors": errors,
+    return jsonify({"ok": True, "found": found, "dupes": dupes,
+                    "out_of_scope": out_of_scope, "errors": errors,
                     "synced_from": after_date})
 
 
