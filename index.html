@@ -2801,7 +2801,8 @@ async function _billsSync(fromDate){
     if(d.dupes)parts.push(`${d.dupes} already in database (skipped)`);
     if(d.out_of_scope)parts.push(`${d.out_of_scope} out of scope`);
     if(d.errors)parts.push(`${d.errors} error${d.errors!==1?'s':''}`);
-    alert(`Scan from ${from}:\n\n${parts.join('\n')}`);
+    const errDetail=d.error_samples&&d.error_samples.length?'\n\nError detail:\n'+d.error_samples.join('\n'):'';
+    alert(`Scan from ${from}:\n\n${parts.join('\n')}${errDetail}`);
     _billsCfg.gmail_last_sync=new Date().toISOString();
     await _billsLoad();
   }catch(e){alert('Sync failed: '+e.message);}

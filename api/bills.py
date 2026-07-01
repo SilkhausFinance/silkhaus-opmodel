@@ -517,6 +517,25 @@ def gmail_sync():
                     "error_samples": error_samples})
 
 
+# ── Diagnostics ──────────────────────────────────────────────────────────────
+
+@app.route("/api/bills/test", methods=["GET"])
+def test_config():
+    results = {}
+    results["anthropic_key_set"] = bool(ANTHROPIC_KEY)
+    try:
+        import anthropic
+        client = anthropic.Anthropic(api_key=ANTHROPIC_KEY)
+        client.messages.create(model="claude-haiku-4-5-20251001", max_tokens=10,
+                               messages=[{"role":"user","content":"ping"}])
+        results["anthropic"] = "ok"
+    except Exception as e:
+        results["anthropic"] = str(e)
+    results["supabase_key_set"] = bool(SUPABASE_SERVICE_KEY)
+    results["gmail_token"] = bool(_refresh_token())
+    return jsonify(results)
+
+
 # ── Bill extraction (no DB save — used for manual upload review) ─────────────
 
 @app.route("/api/bills/extract", methods=["POST", "OPTIONS"])
