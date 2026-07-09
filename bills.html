@@ -349,13 +349,9 @@ dialog::backdrop{background:rgba(21,25,58,.45)}
   <!-- Filters -->
   <div class="filters">
     <div class="filter-field">
-      <label>Status</label>
-      <select id="f-status" onchange="loadBills()">
-        <option value="">All</option>
-        <option value="pending_review">Pending</option>
-        <option value="approved">Approved</option>
-        <option value="rejected">Rejected</option>
-        <option value="exported">Exported</option>
+      <label>Property / Unit</label>
+      <select id="f-property" onchange="renderTable()">
+        <option value="">All properties</option>
       </select>
     </div>
     <div class="filter-field">
@@ -371,6 +367,16 @@ dialog::backdrop{background:rgba(21,25,58,.45)}
       </select>
     </div>
     <div class="filter-field">
+      <label>Status</label>
+      <select id="f-status" onchange="loadBills()">
+        <option value="">All</option>
+        <option value="pending_review">Pending</option>
+        <option value="approved">Approved</option>
+        <option value="rejected">Rejected</option>
+        <option value="exported">Exported</option>
+      </select>
+    </div>
+    <div class="filter-field">
       <label>From</label>
       <input type="date" id="f-from" onchange="loadBills()">
     </div>
@@ -380,7 +386,7 @@ dialog::backdrop{background:rgba(21,25,58,.45)}
     </div>
     <div class="filters-space"></div>
     <button class="btn btn-ghost btn-sm" onclick="clearFilters()">Clear</button>
-    <button class="btn btn-primary btn-sm" onclick="exportCSV()">⬇ Export CSV</button>
+    <button class="btn btn-primary btn-sm" onclick="exportCSVFiltered()">⬇ Export CSV</button>
   </div>
 
   <!-- Bills table -->
@@ -610,6 +616,7 @@ async function loadBills() {
     const res = await api('GET', '/api/bills?' + params);
     const d = await res.json();
     BILLS = d.bills || [];
+    renderFilters();
     renderTable();
     updateStats();
   } catch(e) {
@@ -632,32 +639,139 @@ function updateStats() {
   document.getElementById('stat-month-label').textContent = `${thisMonthBills.length} bill${thisMonthBills.length !== 1 ? 's' : ''} · ${new Date().toLocaleString('default',{month:'long'})}`;
 }
 
+function renderFilters() {
+  const el = document.getElementById('f-property');
+  if (!el) return;
+  const cur = el.value;
+  const props = [...new Set(BILLS.map(b => b.property_name).filter(Boolean))].sort();
+  el.innerHTML = '<option value="">All properties</option>' +
+    props.map(p => `<option value="${esc(p)}"${p === cur ? ' selected' : ''}>${esc(p)}</option>`).join('');
+}
+
 function renderTable() {
   const el = document.getElementById('bills-container');
-  document.getElementById('bill-count').textContent = BILLS.length;
-  if (!BILLS.length) {
+
+  // Property filter is client-side; other filters already applied server-side
+  const propFilter = document.getElementById('f-property')?.value || '';
+  const visible = propFilter ? BILLS.filter(b => b.property_name === propFilter) : BILLS;
+
+  document.getElementById('bill-count').textContent = visible.length;
+
+  if (!visible.length) {
     el.innerHTML = `<div class="empty"><div class="empty-icon">📋</div><h3>No bills found</h3><p>Try adjusting your filters or sync Gmail to pull new invoices.</p><div class="row" style="justify-content:center;gap:10px"><button class="btn btn-primary" id="empty-sync-btn2" style="display:none" onclick="syncGmail()">🔄 Sync Gmail</button><button class="btn btn-ghost" onclick="document.getElementById('file-input').click()">📤 Upload Bill</button></div></div>`;
-    if (CFG.gmail_connected) document.getElementById('empty-sync-btn2').style.display = '';
+    if (CFG.gmail_connected) { const b2 = document.getElementById('empty-sync-btn2'); if(b2) b2.style.display = ''; }
     return;
   }
-  const rows = BILLS.map(b => `
-    <tr onclick="openDrawer('${b.id}')" class="${SELECTED_BILL?.id === b.id ? 'selected' : ''}">
-      <td class="vendor">${esc(b.vendor_name || '—')}</td>
-      <td class="muted">${esc(b.bill_number || '—')}</td>
-      <td class="muted">${fmtDate(b.bill_date)}</td>
-      <td class="amount">${b.currency || 'AED'} ${fmtAmt(b.amount)}</td>
-      <td>${categoryChip(b.category)}</td>
-      <td>${esc(b.property_name || '—')}</td>
-      <td>${statusBadge(b.status)}</td>
-    </tr>`).join('');
-  el.innerHTML = `<table><thead><tr>
-    <th>Vendor</th><th>Bill No.</th><th>Date</th><th>Amount</th><th>Category</th><th>Property</th><th>Status</th>
+
+  // Sort: property → category → date desc
+  const sorted = [...visible].sort((a, b) => {
+    const pa = (a.property_name || '￿'), pb = (b.property_name || '￿');
+    if (pa !== pb) return pa.localeCompare(pb);
+    const ca = a.category || '', cb = b.category || '';
+    if (ca !== cb) return ca.localeCompare(cb);
+    return (b.bill_date || '') > (a.bill_date || '') ? 1 : -1;
+  });
+
+  let rows = '';
+  let prevProp = null, propAmt = 0, propVat = 0, propCount = 0;
+  let grandAmt = 0, grandVat = 0;
+
+  function subtotalRow(label, amt, vat, count) {
+    const tot = amt + vat;
+    return `<tr style="background:var(--panel-2);border-top:2px solid var(--line)">
+      <td colspan="5" style="padding:8px 16px;font-size:11.5px;font-weight:700;color:var(--ink2);letter-spacing:.02em">${esc(label)} &nbsp;·&nbsp; ${count} bill${count!==1?'s':''}</td>
+      <td style="padding:8px 16px;font-weight:700;font-variant-numeric:tabular-nums;text-align:right">${fmtAmt(amt)}</td>
+      <td style="padding:8px 16px;font-weight:600;color:var(--ink2);font-variant-numeric:tabular-nums;text-align:right">${vat ? fmtAmt(vat) : '—'}</td>
+      <td style="padding:8px 16px;font-weight:800;font-variant-numeric:tabular-nums;text-align:right">${fmtAmt(tot)}</td>
+      <td></td>
+    </tr>`;
+  }
+
+  for (const b of sorted) {
+    const prop = b.property_name || '(No unit assigned)';
+    if (prevProp !== null && prop !== prevProp) {
+      rows += subtotalRow(prevProp, propAmt, propVat, propCount);
+      propAmt = 0; propVat = 0; propCount = 0;
+    }
+    prevProp = prop;
+    const amt = parseFloat(b.amount) || 0;
+    const vat = parseFloat(b.tax_amount) || 0;
+    propAmt += amt; propVat += vat; propCount++;
+    grandAmt += amt; grandVat += vat;
+
+    rows += `<tr onclick="openDrawer('${b.id}')" class="${SELECTED_BILL?.id === b.id ? 'selected' : ''}">
+      <td style="padding:13px 16px;font-weight:600;color:var(--ink-strong);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(prop)}</td>
+      <td style="padding:13px 16px">${categoryChip(b.category)}</td>
+      <td style="padding:13px 16px;color:var(--ink2);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(b.vendor_name || '—')}</td>
+      <td style="padding:13px 16px;color:var(--ink2);font-size:12.5px">${esc(b.bill_number || '—')}</td>
+      <td style="padding:13px 16px;color:var(--ink2);font-size:12.5px;white-space:nowrap">${fmtDate(b.bill_date)}</td>
+      <td style="padding:13px 16px;font-weight:700;font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap">${fmtAmt(b.amount)}</td>
+      <td style="padding:13px 16px;color:var(--ink2);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap">${b.tax_amount ? fmtAmt(b.tax_amount) : '—'}</td>
+      <td style="padding:13px 16px;font-weight:700;font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap">${fmtAmt(amt + vat)}</td>
+      <td style="padding:13px 16px">${statusBadge(b.status)}</td>
+    </tr>`;
+  }
+
+  if (prevProp !== null) rows += subtotalRow(prevProp, propAmt, propVat, propCount);
+
+  // Grand total row
+  rows += `<tr style="background:var(--grad-soft);border-top:2px solid var(--accent)">
+    <td colspan="5" style="padding:12px 16px;font-size:13px;font-weight:800;color:var(--ink-strong)">TOTAL &nbsp;·&nbsp; ${sorted.length} bill${sorted.length!==1?'s':''}</td>
+    <td style="padding:12px 16px;font-size:14px;font-weight:800;font-variant-numeric:tabular-nums;text-align:right">${fmtAmt(grandAmt)}</td>
+    <td style="padding:12px 16px;font-weight:700;color:var(--ink2);font-variant-numeric:tabular-nums;text-align:right">${grandVat ? fmtAmt(grandVat) : '—'}</td>
+    <td style="padding:12px 16px;font-size:14px;font-weight:800;font-variant-numeric:tabular-nums;text-align:right">${fmtAmt(grandAmt + grandVat)}</td>
+    <td></td>
+  </tr>`;
+
+  el.innerHTML = `<table style="table-layout:fixed;width:100%"><thead><tr>
+    <th style="width:160px">Property / Unit</th>
+    <th style="width:150px">Category</th>
+    <th style="width:150px">Vendor</th>
+    <th style="width:110px">Bill No.</th>
+    <th style="width:100px">Date</th>
+    <th style="width:120px;text-align:right">Net (AED)</th>
+    <th style="width:100px;text-align:right">VAT</th>
+    <th style="width:120px;text-align:right">Total (AED)</th>
+    <th style="width:100px">Status</th>
   </tr></thead><tbody>${rows}</tbody></table>`;
 }
 
 function clearFilters() {
   ['status','category','from','to'].forEach(id => { const el = document.getElementById('f-'+id); if(el) el.value = ''; });
+  const pp = document.getElementById('f-property'); if(pp) pp.value = '';
   loadBills();
+}
+
+function exportCSVFiltered() {
+  const propFilter = document.getElementById('f-property')?.value || '';
+  const rows = propFilter ? BILLS.filter(b => b.property_name === propFilter) : BILLS;
+  if (!rows.length) { toast('No bills to export', 'info'); return; }
+  const sorted = [...rows].sort((a, b) => {
+    const pa = a.property_name || '', pb = b.property_name || '';
+    if (pa !== pb) return pa.localeCompare(pb);
+    return (b.bill_date || '') > (a.bill_date || '') ? 1 : -1;
+  });
+  const header = ['Property/Unit','Category','Vendor','Bill No.','Bill Date','Due Date','Currency','Net Amount','VAT Amount','Total Amount','Debit Account','Credit Account','Memo','Status','Source','External ID'];
+  const data = sorted.map(b => [
+    b.property_name || '',
+    b.category || '',
+    b.vendor_name || '',
+    b.bill_number || '',
+    b.bill_date || '',
+    b.due_date || '',
+    b.currency || 'AED',
+    b.amount || '',
+    b.tax_amount || '',
+    ((parseFloat(b.amount)||0) + (parseFloat(b.tax_amount)||0)).toFixed(2),
+    b.suggested_debit_account || '',
+    b.suggested_credit_account || 'Accounts Payable',
+    b.netsuite_memo || '',
+    b.status || '',
+    b.source || '',
+    b.id || '',
+  ]);
+  downloadCSV([header, ...data], `silkhaus-bills-${new Date().toISOString().slice(0,10)}.csv`);
+  toast(`Exported ${sorted.length} bills`, 'success');
 }
 
 // ── Drawer ─────────────────────────────────────────────────────────────────
