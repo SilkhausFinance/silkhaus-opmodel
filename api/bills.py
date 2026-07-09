@@ -60,6 +60,7 @@ Return ONLY valid JSON (no markdown):
   "category": one of the exact category strings above or null,
   "expense_nature": "Opex",
   "property_name": string (unit/building/property this bill covers, if visible) or null,
+  "property_code": string (short code identifying the property, e.g. "PROP-001", "DT-204", visible on the document) or null,
   "suggested_debit_account": string (e.g. "Utilities Expense", "Repairs & Maintenance Expense", "Cleaning Expense"),
   "suggested_credit_account": "Accounts Payable",
   "netsuite_memo": string (concise memo for NetSuite, include vendor + period if visible) or null,
@@ -358,7 +359,7 @@ def gmail_sync():
     # takes ~2-3 s, so cap at 4 per call and chain from the frontend.
     MAX_PER_CALL = 4
 
-    def _save_bill(extracted, msg_id, subject, sender, dedup_key=None):
+    def _save_bill(extracted, msg_id, subject, sender, dedup_key=None, email_date=None):
         nonlocal found, dupes, out_of_scope, errors
         if "error" in extracted:
             out_of_scope += 1
@@ -381,6 +382,7 @@ def gmail_sync():
                 "category": extracted.get("category"),
                 "expense_nature": "Opex",
                 "property_name": extracted.get("property_name"),
+                "property_code": extracted.get("property_code"),
                 "suggested_debit_account": extracted.get("suggested_debit_account"),
                 "suggested_credit_account": "Accounts Payable",
                 "netsuite_memo": extracted.get("netsuite_memo"),
@@ -391,6 +393,7 @@ def gmail_sync():
                 "source_email_id": key,
                 "source_email_subject": subject,
                 "source_email_from": sender,
+                "source_email_date": email_date,
                 "status": "pending_review",
             }).execute()
             found += 1
@@ -416,6 +419,11 @@ def gmail_sync():
         headers = {h["name"].lower(): h["value"] for h in msg.get("payload", {}).get("headers", [])}
         subject = headers.get("subject", "")
         sender = headers.get("from", "")
+        internal_ms = msg.get("internalDate")
+        email_date = (
+            datetime.fromtimestamp(int(internal_ms) / 1000, tz=timezone.utc).isoformat()
+            if internal_ms else None
+        )
 
         # ── 1. Direct PDF / image attachments ────────────────────────────────
         attachments = []
@@ -452,7 +460,7 @@ def gmail_sync():
                 errors += 1
                 if len(error_samples) < 3: error_samples.append(f"att {filename}: {e}")
                 continue
-            _save_bill(extracted, msg_id, subject, sender, dedup_key=dedup)
+            _save_bill(extracted, msg_id, subject, sender, dedup_key=dedup, email_date=email_date)
 
         # ── 2. Google Sheets links in email body ──────────────────────────────
         # Extract plain text body from the message payload
@@ -517,7 +525,7 @@ def gmail_sync():
                     errors += 1
                     if len(error_samples) < 3: error_samples.append(f"drive {fid}: {e}")
                     continue
-                _save_bill(extracted, msg_id, subject, sender, dedup_key=dedup)
+                _save_bill(extracted, msg_id, subject, sender, dedup_key=dedup, email_date=email_date)
 
     # Update last sync timestamp
     sb.table("settings").upsert({

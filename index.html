@@ -2738,8 +2738,13 @@ function _bRenderTable(){
     if(ca!==cb)return ca.localeCompare(cb);
     return(b.bill_date||'')>(a.bill_date||'')?1:-1;
   });
-  const TH=s=>`<th style="padding:9px 12px;font-size:10.5px;font-weight:700;color:var(--ink2);letter-spacing:.04em;text-transform:uppercase;white-space:nowrap;background:var(--panel-2);border-bottom:1px solid var(--line);text-align:${s.startsWith('N')||s.startsWith('V')||s.startsWith('T')?'right':'left'}">${s}</th>`;
-  const SUB=(lbl,amt,vat,cnt)=>`<tr style="background:var(--panel-2);border-top:2px solid var(--line)"><td colspan="5" style="padding:7px 12px;font-size:11px;font-weight:700;color:var(--ink2)">${_bE(lbl)} · ${cnt} bill${cnt!==1?'s':''}</td><td style="padding:7px 12px;font-weight:700;font-variant-numeric:tabular-nums;text-align:right">${_bA(amt)}</td><td style="padding:7px 12px;color:var(--ink2);font-variant-numeric:tabular-nums;text-align:right">${vat?_bA(vat):'—'}</td><td style="padding:7px 12px;font-weight:800;font-variant-numeric:tabular-nums;text-align:right">${_bA(amt+vat)}</td><td></td></tr>`;
+  const COLS=[['Property Name','150px','left'],['Property Code','90px','left'],['Vendor Name','140px','left'],['Invoice No.','100px','left'],['Expense Type','140px','left'],['Amount (AED)','110px','right'],['VAT %','65px','right'],['VAT (AED)','100px','right'],['Debit Account','130px','left'],['Credit Account','130px','left'],['Email Subject','170px','left'],['Email Date','90px','left'],['Invoice','75px','center']];
+  const TH=([lbl,w,a])=>`<th style="padding:9px 12px;width:${w};font-size:10.5px;font-weight:700;color:var(--ink2);letter-spacing:.04em;text-transform:uppercase;white-space:nowrap;background:var(--panel-2);border-bottom:1px solid var(--line);text-align:${a}">${lbl}</th>`;
+  const SUB=(lbl,amt,vat,cnt)=>`<tr style="background:var(--panel-2);border-top:2px solid var(--line)"><td colspan="5" style="padding:7px 12px;font-size:11px;font-weight:700;color:var(--ink2)">${_bE(lbl)} · ${cnt} bill${cnt!==1?'s':''}</td><td style="padding:7px 12px;font-weight:700;font-variant-numeric:tabular-nums;text-align:right">${_bA(amt)}</td><td></td><td style="padding:7px 12px;color:var(--ink2);font-variant-numeric:tabular-nums;text-align:right">${vat?_bA(vat):'—'}</td><td colspan="5"></td></tr>`;
+  const gmailUrl=sid=>{if(!sid)return'';return`https://mail.google.com/mail/u/0/#all/${sid.split(':')[0]}`;};
+  const vatPct=(a,t)=>{if(!a||!t||parseFloat(a)===0)return'—';return Math.round((parseFloat(t)/parseFloat(a))*100)+'%';};
+  const emailDt=b=>{const s=b.source_email_date||b.created_at;if(!s)return'—';return new Date(s).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'2-digit'});};
+  const TD=(v,extra='')=>`<td style="padding:9px 12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap${extra}">${v}</td>`;
   let rows='',prevP=null,pAmt=0,pVat=0,pCnt=0,gAmt=0,gVat=0;
   for(const b of sorted){
     const p=b.property_name||'(No unit)';
@@ -2747,21 +2752,26 @@ function _bRenderTable(){
     prevP=p;
     const amt=parseFloat(b.amount)||0,vat=parseFloat(b.tax_amount)||0;
     pAmt+=amt;pVat+=vat;pCnt++;gAmt+=amt;gVat+=vat;
+    const url=gmailUrl(b.source_email_id);
     rows+=`<tr onclick="_bOpenDr('${b.id}')" style="border-bottom:1px solid var(--line2);cursor:pointer" onmouseover="this.style.background='var(--hover)'" onmouseout="this.style.background=''">
-      <td style="padding:11px 12px;font-weight:600;color:var(--ink-strong);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_bE(p)}</td>
-      <td style="padding:11px 12px">${_bChip(b.category)}</td>
-      <td style="padding:11px 12px;color:var(--ink2);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_bE(b.vendor_name||'—')}</td>
-      <td style="padding:11px 12px;color:var(--ink2);font-size:12px">${_bE(b.bill_number||'—')}</td>
-      <td style="padding:11px 12px;color:var(--ink2);font-size:12px;white-space:nowrap">${_bD(b.bill_date)}</td>
-      <td style="padding:11px 12px;font-weight:700;font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap">${_bA(amt)}</td>
-      <td style="padding:11px 12px;color:var(--ink2);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap">${vat?_bA(vat):'—'}</td>
-      <td style="padding:11px 12px;font-weight:700;font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap">${_bA(amt+vat)}</td>
-      <td style="padding:11px 12px">${_bBadge(b.status)}</td>
+      ${TD(`<span style="font-weight:600;color:var(--ink-strong)">${_bE(p)}</span>`)}
+      ${TD(_bE(b.property_code||'—'),';color:var(--ink2);font-size:12px')}
+      ${TD(_bE(b.vendor_name||'—'),';color:var(--ink)')}
+      ${TD(_bE(b.bill_number||'—'),';color:var(--ink2);font-size:12px')}
+      ${TD(_bChip(b.category))}
+      ${TD(_bA(amt),';font-weight:700;font-variant-numeric:tabular-nums;text-align:right')}
+      ${TD(vatPct(b.amount,b.tax_amount),';color:var(--ink2);font-variant-numeric:tabular-nums;text-align:right')}
+      ${TD(vat?_bA(vat):'—',';color:var(--ink2);font-variant-numeric:tabular-nums;text-align:right')}
+      ${TD(_bE(b.suggested_debit_account||'—'),';color:var(--ink2);font-size:11.5px')}
+      ${TD(_bE(b.suggested_credit_account||'Accounts Payable'),';color:var(--ink2);font-size:11.5px')}
+      ${TD(_bE(b.source_email_subject||'—'),';color:var(--ink2);font-size:11.5px')}
+      ${TD(emailDt(b),';color:var(--ink2);font-size:11.5px')}
+      <td style="padding:9px 12px;text-align:center">${url?`<a href="${url}" target="_blank" onclick="event.stopPropagation()" style="color:var(--accent);font-size:11.5px;font-weight:600;text-decoration:none;white-space:nowrap">Open ↗</a>`:'—'}</td>
     </tr>`;
   }
   if(prevP)rows+=SUB(prevP,pAmt,pVat,pCnt);
-  rows+=`<tr style="background:var(--grad-soft);border-top:2px solid var(--accent)"><td colspan="5" style="padding:11px 12px;font-size:13px;font-weight:800;color:var(--ink-strong)">TOTAL · ${sorted.length} bill${sorted.length!==1?'s':''}</td><td style="padding:11px 12px;font-size:13px;font-weight:800;font-variant-numeric:tabular-nums;text-align:right">${_bA(gAmt)}</td><td style="padding:11px 12px;font-weight:700;color:var(--ink2);font-variant-numeric:tabular-nums;text-align:right">${gVat?_bA(gVat):'—'}</td><td style="padding:11px 12px;font-size:13px;font-weight:800;font-variant-numeric:tabular-nums;text-align:right">${_bA(gAmt+gVat)}</td><td></td></tr>`;
-  el.innerHTML=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;table-layout:fixed;min-width:900px"><thead><tr>${[['Property / Unit','150px'],['Category','140px'],['Vendor','140px'],['Bill No.','105px'],['Date','95px'],['Net (AED)','115px'],['VAT','90px'],['Total (AED)','115px'],['Status','90px']].map(([h,w])=>TH(h).replace('padding:9px 12px',`padding:9px 12px;width:${w}`)).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`;
+  rows+=`<tr style="background:var(--grad-soft);border-top:2px solid var(--accent)"><td colspan="5" style="padding:10px 12px;font-size:13px;font-weight:800;color:var(--ink-strong)">TOTAL · ${sorted.length} bill${sorted.length!==1?'s':''}</td><td style="padding:10px 12px;font-size:13px;font-weight:800;font-variant-numeric:tabular-nums;text-align:right">${_bA(gAmt)}</td><td></td><td style="padding:10px 12px;font-weight:700;color:var(--ink2);font-variant-numeric:tabular-nums;text-align:right">${gVat?_bA(gVat):'—'}</td><td colspan="5"></td></tr>`;
+  el.innerHTML=`<div style="overflow-x:auto"><table style="border-collapse:collapse;table-layout:fixed;min-width:1490px;width:100%"><thead><tr>${COLS.map(TH).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
 function _bRender(){
@@ -2951,9 +2961,15 @@ function _bExportFiltered(){
     return(b.bill_date||'')>(a.bill_date||'')?1:-1;
   });
   if(!rows.length){alert('No bills to export.');return;}
-  const hdr=['Property/Unit','Category','Vendor','Bill No.','Bill Date','Due Date','Currency','Net Amount','VAT Amount','Total Amount','Debit Account','Credit Account','Memo','Status','External ID'];
-  const data=rows.map(b=>[b.property_name||'',b.category||'',b.vendor_name||'',b.bill_number||'',b.bill_date||'',b.due_date||'',b.currency||'AED',b.amount||'',b.tax_amount||'',((parseFloat(b.amount)||0)+(parseFloat(b.tax_amount)||0)).toFixed(2),b.suggested_debit_account||'',b.suggested_credit_account||'Accounts Payable',b.netsuite_memo||'',b.status||'',b.id||'']);
-  const csv=[hdr,...data].map(r=>r.map(c=>'"'+String(c||'').replace(/"/g,'""')+'"').join(',')).join('\n');
+  const hdr=['Property Name','Property Code','Vendor Name','Invoice Number','Expense Type','Amount','VAT %','VAT (Amount)','Debit Account','Credit Account','Email Subject','Email Date','Link to Invoice'];
+  const q=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';
+  const data=rows.map(b=>{
+    const vatPct=(b.amount&&b.tax_amount&&parseFloat(b.amount))?Math.round((parseFloat(b.tax_amount)/parseFloat(b.amount))*100)+'%':'';
+    const emailDt=b.source_email_date?b.source_email_date.slice(0,10):(b.created_at?b.created_at.slice(0,10):'');
+    const link=b.source_email_id?`https://mail.google.com/mail/u/0/#all/${b.source_email_id.split(':')[0]}`:'';
+    return[b.property_name||'',b.property_code||'',b.vendor_name||'',b.bill_number||'',b.category||'',b.amount||'',vatPct,b.tax_amount||'',b.suggested_debit_account||'',b.suggested_credit_account||'Accounts Payable',b.source_email_subject||'',emailDt,link].map(q).join(',');
+  });
+  const csv=[hdr.map(q).join(','),...data].join('\n');
   const blob=new Blob([csv],{type:'text/csv'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='silkhaus-bills-'+new Date().toISOString().slice(0,10)+'.csv';a.click();URL.revokeObjectURL(url);
 }
 
